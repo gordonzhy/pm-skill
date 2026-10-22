@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "name": "pm-server-pm-skill",
+  "skill": "project-manager",
+  "application": "pm-server",
+  "cliProtocolVersion": 1,
+  "project": {
+    "truth": [
+      "TASKS.csv",
+      "task detail Markdown"
+    ],
+    "writer": "project manager through project-manager",
+    "applicationAccess": "read-only",
+    "key": [
+      "project_id",
+      "task_id"
+    ],
+    "dispatchIdentity": [
+      "dispatch_id",
+      "execution_thread_id",
+      "manager_thread_id"
+    ],
+    "managerRegistration": {
+      "source": "project-manager.config.json manager",
+      "fields": [
+        "threadId",
+        "registeredAt"
+      ],
+      "taskRoutes": "task manager_thread_id remains the callback route; takeover preserves execution and dispatch identity",
+      "emptyProjects": "register manager without creating an example or business task"
+    }
+  },
+  "runtime": {
+    "snapshot": "session-runtime.csv",
+    "headers": [
+      "session_id",
+      "status",
+      "current_turn_id",
+      "status_at",
+      "last_seen_at"
+    ],
+    "sessionIdentity": [
+      "host",
+      "instance_id",
+      "session_id"
+    ],
+    "encoding": "encodeURIComponent components joined by colon",
+    "statuses": [
+      "idle",
+      "running",
+      "waiting",
+      "interrupted",
+      "ended",
+      "unknown"
+    ],
+    "legacyBridge": "explicit single-host CODEX_SESSION_RUNTIME_CSV only"
+  },
+  "notification": {
+    "default": "disabled",
+    "backend": "explicit executable and argv template",
+    "acceptedIsHandled": false
+  },
+  "skillDependency": "optional public CLI; no sibling imports",
+  "registration": {
+    "mode": "automatic on project request",
+    "states": [
+      "registered",
+      "removed"
+    ],
+    "identity": "canonical CSV path",
+    "blacklist": "persistent removed records; normal and legacy --auto requests cannot restore them",
+    "unblock": "explicit workbench add, restore or delete-removed action only",
+    "legacyPending": "validated and activated at workbench startup; invalid sources retained with errors for retry",
+    "compatibility": "CLI protocol v1 retained; older servers may return pending and require their confirmation flow"
+  }
+}

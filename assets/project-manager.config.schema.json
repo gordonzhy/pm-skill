@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-manager.local/schemas/project-manager.config.schema.json",
+  "title": "project-manager 项目级配置",
+  "description": "project-manager.config.json（configVersion 1）的结构约束。语义校验以 project-manager/scripts/project-config-v2.mjs 为准；本 schema 供编辑器补全与 CI 结构检查。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "configVersion",
+    "project",
+    "taskSystem"
+  ],
+  "properties": {
+    "configVersion": {
+      "const": 1,
+      "description": "配置版本；不兼容变更时递增并保留旧版本解释规则。"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "prefix"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+          "description": "项目显示名，同时作为工作台项目名默认值。"
+        },
+        "prefix": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*$",
+          "description": "任务编号前缀：大写字母开头，仅大写字母与数字，不含连字符；任务 ID 形如 <PREFIX>-001。"
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+          "default": "未分组",
+          "description": "工作台登记时的默认分组。"
+        }
+      }
+    },
+    "taskSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "csv",
+        "detailsDir"
+      ],
+      "properties": {
+        "csv": {
+          "const": "TASKS.csv",
+          "description": "configVersion 1 固定为 TASKS.csv：工作台、校验器与生成器都以该文件为任务真源入口。"
+        },
+        "detailsDir": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![./])(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*\\\\).+$",
+          "default": "work-items",
+          "description": "新任务详情卡的默认目录（仓库内相对 POSIX 路径）。既有任务仍以 CSV 的 detail_path 为准。"
+        },
+        "statuses": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "待办",
+              "进行中",
+              "待确认",
+              "受阻",
+              "已完成",
+              "已取消"
+            ]
+          },
+          "default": [
+            "待办",
+            "进行中",
+            "待确认",
+            "受阻",
+            "已完成",
+            "已取消"
+          ],
+          "description": "任务状态词表；configVersion 1 固定为这 6 个值（顺序可变，不能增删）。"
+        }
+      }
+    },
+    "workbench": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 9999,
+          "description": "本项目工作台/兼容看板的默认端口；0 仅用于隔离测试的随机端口。"
+        },
+        "stateDir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "可选的工作台状态目录（仓库内相对路径或绝对路径）；缺省沿用宿主状态目录。"
+        }
+      }
+    },
+    "manager": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "threadId",
+        "registeredAt"
+      ],
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Actual manager session identity; also available before any task is created."
+        },
+        "registeredAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

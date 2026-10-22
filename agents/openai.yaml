@@ -1,0 +1,7 @@
+interface:
+  display_name: "Project Manager"
+  short_description: "规划、派发与验收 AI 项目，配合统一任务工作台和后台监测，为遗漏回调与交接兜底"
+  icon_small: "./assets/project-manager-icon.png"
+  icon_large: "./assets/project-manager-logo.svg"
+  brand_color: "#67DCF0"
+  default_prompt: "使用 $project-manager 接管任务真源，同步创建或复用独立 PMO 会话，推进已授权交付，并在较大任务完成后主动派发复盘，将经验转化为可验证的改进。"

@@ -1,0 +1,9 @@
+node_modules/
+artifacts/
+dist/
+*.tgz
+*.log
+.env
+.env.*
+.DS_Store
+__pycache__/

@@ -1,0 +1,5 @@
+js-yaml 4.1.1 — MIT
+Upstream: https://github.com/nodeca/js-yaml/tree/4.1.1
+Bundle: https://raw.githubusercontent.com/nodeca/js-yaml/4.1.1/dist/js-yaml.min.js
+License: js-yaml.LICENSE
+Bundled unchanged for offline browser and Node JSON_SCHEMA parsing.

@@ -1,0 +1,748 @@
+{
+  "version": 1,
+  "status": "implementation acceptance specification; execution results stored separately",
+  "fixture": {
+    "project": "ATLAS",
+    "task": "ATLAS-001",
+    "dispatch": "dispatch-a",
+    "epoch": "epoch-a",
+    "clock": "2030-01-01T00:00:00Z",
+    "root": "adapter-created private temporary directory",
+    "limits": {
+      "runtimeTTLSeconds": 60,
+      "extensionBudget": 2,
+      "ownerEscalationBudget": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "S01",
+      "title": "正常阶段交接不会关闭业务",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "worker.normalExit",
+        "manager.pull"
+      ],
+      "expect": {
+        "handoff.published": true,
+        "handoff.seen": true,
+        "business.closed": false,
+        "responsibility.open": true
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "审批拒发后经理本机拉取",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "notify.approvalReject",
+        "worker.normalExit",
+        "manager.restart",
+        "manager.pull"
+      ],
+      "expect": {
+        "transport.attempts": 1,
+        "transport.state": "rejected",
+        "handoff.seen": true,
+        "business.closed": false,
+        "userRelayRequested": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S03",
+      "title": "accepted后消息丢失不消消费期限",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "notify.acceptThenDrop",
+        "clock.consumeDue",
+        "scan.tick"
+      ],
+      "expect": {
+        "handoff.seen": false,
+        "responsibility.due": true,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S04",
+      "title": "正常结束前发布失败",
+      "steps": [
+        "dispatch.open",
+        "disk.failFlush",
+        "handoff.publish.final",
+        "worker.normalExit"
+      ],
+      "expect": {
+        "handoff.published": false,
+        "worker.claimedHandoff": false,
+        "responsibility.open": true,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S05",
+      "title": "发布前被杀且观察缺失仍发现责任到期",
+      "steps": [
+        "dispatch.open",
+        "worker.killBeforePublish",
+        "runtime.remove",
+        "clock.firstCheckDue",
+        "scan.tick"
+      ],
+      "expect": {
+        "runtime.state": "unknown",
+        "responsibility.due": true,
+        "dispatch.count": 1,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S06",
+      "title": "rename后index前杀进程可发现不可变信封",
+      "steps": [
+        "dispatch.open",
+        "handoff.killAfterRenameBeforeIndex",
+        "manager.restart",
+        "manager.pull"
+      ],
+      "expect": {
+        "handoff.seen": true,
+        "handoff.count": 1,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S07",
+      "title": "同event重放不重复消费或派发",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "handoff.replaySameBytes",
+        "manager.pull",
+        "manager.pull"
+      ],
+      "expect": {
+        "handoff.count": 1,
+        "handoff.consumeCount": 1,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S08",
+      "title": "同event异字节与越权根拒绝",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "handoff.replayChangedBytes",
+        "handoff.publishSymlink",
+        "handoff.publishWrongEpoch"
+      ],
+      "expect": {
+        "handoff.count": 1,
+        "faults.conflictRejected": true,
+        "faults.pathRejected": true,
+        "faults.epochRejected": true,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S09",
+      "title": "ACK不代处置",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.disposeAckOnly"
+      ],
+      "expect": {
+        "disposition.accepted": false,
+        "responsibility.open": true,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "有限责任安排不满足验收根",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.scheduleCheckpoint",
+        "clock.nextDue",
+        "scan.tick"
+      ],
+      "expect": {
+        "responsibility.due": true,
+        "responsibility.ownerSet": true,
+        "business.reviewSatisfied": false,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "重复延期不能洗绝对期限",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.scheduleCheckpoint",
+        "manager.extendWithEvidence",
+        "manager.extendWithEvidence",
+        "manager.extendBeyondBudget",
+        "clock.absoluteDue",
+        "scan.tick"
+      ],
+      "expect": {
+        "faults.extensionRejected": true,
+        "responsibility.due": true,
+        "responsibility.absoluteDueUnchanged": true,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S12",
+      "title": "原生事务提交后ack前崩溃不重执行",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.nativeDisposeKillAfterCommit",
+        "manager.restart",
+        "manager.reconcile"
+      ],
+      "expect": {
+        "business.actionCount": 1,
+        "handoff.disposed": true,
+        "disposition.receiptRebuilt": true
+      },
+      "modes": [
+        "native"
+      ]
+    },
+    {
+      "id": "S13",
+      "title": "孤立ack缺收据不能冒已处置",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "fault.injectOrphanAck",
+        "manager.reconcile"
+      ],
+      "expect": {
+        "recovery.required": true,
+        "handoff.disposed": false,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S14",
+      "title": "新修订不继承旧候选pass",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.disposeValidPass",
+        "handoff.publishSupersedingCandidate",
+        "manager.pull"
+      ],
+      "expect": {
+        "responsibility.open": true,
+        "business.currentCandidateAccepted": false,
+        "history.oldDecisionPreserved": true
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S15",
+      "title": "重复拒绝与重启仅一次有限升级",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "notify.approvalReject",
+        "clock.absoluteDue",
+        "scan.tick",
+        "scan.restart",
+        "scan.tick",
+        "clock.ownerDue",
+        "scan.tick",
+        "scan.tick"
+      ],
+      "expect": {
+        "transport.attempts": 1,
+        "owner.escalationCount": 1,
+        "owner.state": "exhausted",
+        "dispatch.count": 1,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S16",
+      "title": "无owner不寻找其他披露对象",
+      "steps": [
+        "dispatch.openNoOwner",
+        "handoff.publish.final",
+        "notify.approvalReject",
+        "clock.absoluteDue",
+        "scan.tick",
+        "scan.tick"
+      ],
+      "expect": {
+        "owner.state": "unavailable",
+        "transport.attempts": 1,
+        "externalDestinationCount": 0,
+        "responsibility.open": true
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S17",
+      "title": "active过期不得继续声称运行",
+      "steps": [
+        "dispatch.open",
+        "runtime.activeFresh",
+        "claim.inspect",
+        "clock.runtimeTTL",
+        "claim.inspect"
+      ],
+      "expect": {
+        "claim.firstRunning": true,
+        "claim.latestRunning": false,
+        "runtime.state": "unknown",
+        "claim.hasSampleTime": true
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S18",
+      "title": "新鲜idle且任务进行中分轴显示",
+      "steps": [
+        "dispatch.open",
+        "runtime.idleFresh",
+        "claim.inspect"
+      ],
+      "expect": {
+        "business.open": true,
+        "runtime.state": "idle",
+        "claim.latestRunning": false,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S19",
+      "title": "扫描覆盖不因缺观察或坏项目失活",
+      "steps": [
+        "dispatch.open",
+        "runtime.remove",
+        "fault.addCorruptOtherProject",
+        "clock.firstCheckDue",
+        "scan.tick"
+      ],
+      "expect": {
+        "responsibility.due": true,
+        "scan.currentProjectChecked": true,
+        "scan.otherProjectError": true,
+        "runtime.state": "unknown"
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S20",
+      "title": "未安装新版明确人工模式",
+      "steps": [
+        "environment.legacyNoInstall",
+        "dispatch.open",
+        "claim.inspect"
+      ],
+      "expect": {
+        "coverage.mode": "legacy-manual",
+        "coverage.automaticOutbox": false,
+        "coverage.automaticWake": false,
+        "installation.changed": false
+      },
+      "modes": [
+        "legacy-manual"
+      ]
+    },
+    {
+      "id": "S21",
+      "title": "兼容pending后中央写前崩溃只核对",
+      "steps": [
+        "environment.legacyCompat",
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.legacyKillBeforeCentralWrite",
+        "manager.restart",
+        "manager.reconcile"
+      ],
+      "expect": {
+        "disposition.needsReconciliation": true,
+        "business.actionCount": 0,
+        "dispatch.count": 1,
+        "business.closed": false
+      },
+      "modes": [
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S22",
+      "title": "兼容中央写后finalize前崩溃不重放",
+      "steps": [
+        "environment.legacyCompat",
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.legacyKillAfterCentralWrite",
+        "manager.restart",
+        "manager.reconcile"
+      ],
+      "expect": {
+        "business.actionCount": 1,
+        "disposition.receiptRebuilt": true,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S23",
+      "title": "停止扫描不宣称永续活性",
+      "steps": [
+        "dispatch.open",
+        "scan.stop",
+        "clock.absoluteDue",
+        "claim.inspect"
+      ],
+      "expect": {
+        "coverage.automaticWake": false,
+        "responsibility.open": true,
+        "claim.latestRunning": false,
+        "scan.claimedHealthy": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S24",
+      "title": "时钟倒退不重置期限",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "manager.pull",
+        "manager.scheduleCheckpoint",
+        "clock.backward",
+        "scan.tick"
+      ],
+      "expect": {
+        "clock.uncertain": true,
+        "responsibility.absoluteDueUnchanged": true,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S25",
+      "title": "用户明确暂停不自动恢复",
+      "steps": [
+        "dispatch.open",
+        "owner.pauseExplicit",
+        "clock.absoluteDue",
+        "scan.tick",
+        "scan.restart",
+        "scan.tick"
+      ],
+      "expect": {
+        "dispatch.count": 1,
+        "pause.preserved": true,
+        "resume.count": 0,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S26",
+      "title": "旧收据错误scope与伪造dispose拒绝",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.disposeOldScope",
+        "worker.forgeManagerDispose"
+      ],
+      "expect": {
+        "disposition.accepted": false,
+        "responsibility.open": true,
+        "business.closed": false
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S27",
+      "title": "同派发同revision的两项承诺独立到期",
+      "steps": [
+        "dispatch.openTwoCommitments",
+        "handoff.publishForCommitmentA",
+        "manager.pull",
+        "manager.scheduleCommitmentA",
+        "clock.firstCheckDue",
+        "scan.tick",
+        "manager.resolveCommitmentAByValidAction",
+        "scan.restart",
+        "fault.corruptCommitmentAEnvelope",
+        "scan.tick"
+      ],
+      "expect": {
+        "commitments.count": 2,
+        "commitments.bDue": true,
+        "commitments.bSatisfied": false,
+        "commitments.distinctRoots": true,
+        "commitments.aDisposed": true,
+        "scan.corruptAIsolated": true
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S28",
+      "title": "revision和症状切换继承同一预算",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "manager.pull",
+        "manager.scheduleCheckpoint",
+        "manager.extendWithEvidence",
+        "manager.extendWithEvidence",
+        "manager.extendBeyondBudget",
+        "notify.approvalReject",
+        "clock.absoluteDue",
+        "scan.tick",
+        "runtime.remove",
+        "handoff.publishSupersedingCandidate",
+        "manager.transferEpochAuthorized",
+        "manager.oldEpochDispose",
+        "manager.extendBeyondBudget",
+        "scan.restart",
+        "scan.tick"
+      ],
+      "expect": {
+        "responsibility.absoluteDueUnchanged": true,
+        "owner.escalationCount": 1,
+        "transport.attempts": 1,
+        "commitments.count": 1,
+        "responsibility.budgetInheritedAcrossManagerEpoch": true,
+        "responsibility.extensionBudgetRemaining": 0,
+        "faults.oldEpochDisposeRejected": true,
+        "faults.extensionRejected": true
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S29",
+      "title": "丢metadata不能重置为未执行",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.final",
+        "manager.pull",
+        "manager.disposeValidAction",
+        "fault.loseAckAndCursor",
+        "manager.restart",
+        "manager.reconcile"
+      ],
+      "expect": {
+        "business.actionCount": 1,
+        "disposition.receiptRebuilt": true,
+        "dispatch.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S30",
+      "title": "worker重建承诺或伪造新范围不重置责任",
+      "steps": [
+        "dispatch.open",
+        "handoff.publish.stage",
+        "worker.forgeCommitmentReplacement",
+        "worker.forgeScopeDecision",
+        "clock.absoluteDue",
+        "scan.tick"
+      ],
+      "expect": {
+        "faults.commitmentReplacementRejected": true,
+        "faults.scopeDecisionRejected": true,
+        "responsibility.absoluteDueUnchanged": true,
+        "commitments.count": 1
+      },
+      "modes": [
+        "native",
+        "legacy-compat"
+      ]
+    },
+    {
+      "id": "S31",
+      "title": "重读旧active更新采集时间不得伪造新鲜运行",
+      "modes": [
+        "native",
+        "legacy-compat"
+      ],
+      "steps": [
+        "dispatch.open",
+        "runtime.activeFresh",
+        "claim.inspect",
+        "clock.runtimeTTL",
+        "runtime.rereadOldActiveWithNewCollectedAt",
+        "claim.inspect"
+      ],
+      "expect": {
+        "claim.firstRunning": true,
+        "claim.latestRunning": false,
+        "runtime.state": "unknown",
+        "runtime.sourceEventTimeUnchanged": true,
+        "runtime.collectedTimeAdvanced": true
+      }
+    },
+    {
+      "id": "S32",
+      "title": "旧turn重放不能覆盖当前路由状态",
+      "modes": [
+        "native",
+        "legacy-compat"
+      ],
+      "steps": [
+        "dispatch.open",
+        "runtime.currentTurnEnded",
+        "runtime.replayOlderTurnActive",
+        "claim.inspect"
+      ],
+      "expect": {
+        "claim.latestRunning": false,
+        "runtime.oldTurnIgnored": true
+      }
+    },
+    {
+      "id": "S33",
+      "title": "reconcile失败不能回退旧runningHint",
+      "modes": [
+        "native",
+        "legacy-compat"
+      ],
+      "steps": [
+        "dispatch.open",
+        "runtime.activeFresh",
+        "fault.reconcileFailsWithOldRunningHint",
+        "claim.inspect"
+      ],
+      "expect": {
+        "claim.latestRunning": false,
+        "runtime.state": "unknown",
+        "claim.reconcileFailureVisible": true
+      }
+    }
+  ],
+  "executionMatrix": {
+    "supportedModes": [
+      "native",
+      "legacy-compat",
+      "legacy-manual"
+    ],
+    "caseModePairs": 62,
+    "requiredMetadata": [
+      "mode",
+      "candidate_digest",
+      "implementation_entry",
+      "evidence_dir"
+    ],
+    "missingAdapterOrMode": "fail, never skip/pass"
+  }
+}

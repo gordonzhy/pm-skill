@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<script>
+const embeddedDetail=window.parent!==window&&new URLSearchParams(location.search).get('embed')==='detail'&&!!new URLSearchParams(location.search).get('task');
+if(embeddedDetail)document.documentElement.classList.add('embedded-task-detail');
+</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{DASHBOARD_TITLE}}</title>
+  <link rel="icon" type="image/svg+xml" href="{{DASHBOARD_FAVICON}}">
+  <style>
+    :root { color-scheme:light; --ink:#172033; --muted:#667085; --line:#d7dce5; --panel:#f7f8fa; --accent:#2357d9; --accent-soft:#e9efff; --todo-bg:#eaf0ff; --todo-fg:#2949a3; --active-bg:#fff1c2; --active-fg:#744b00; --ready-bg:#dff7e8; --ready-fg:#12633b; --confirm-bg:#e8f1ff; --confirm-fg:#174ea6; --blocked-bg:#ffe2e0; --blocked-fg:#912018; --completed-bg:#dcfae6; --completed-fg:#05603a; --cancelled-bg:#eceff3; --cancelled-fg:#475467; --unknown-bg:#f2f4f7; --unknown-fg:#475467; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:#fff; }
+    main { max-width:1680px; margin:auto; padding:28px; }
+    h1 { margin:0 0 6px; font-size:28px; }
+    .page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:22px; }
+    .source { color:var(--muted); margin:0; }
+    .source a, td a { color:var(--accent); }
+    .notification-permission { display:flex; align-items:center; gap:12px; margin:0 0 16px; padding:10px 14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); font-size:13px; }
+    .notification-permission[hidden] { display:none; }
+    .notification-permission button { appearance:none; flex:0 0 auto; padding:7px 11px; border:1px solid var(--accent); border-radius:6px; background:#fff; color:var(--accent); font:inherit; font-weight:650; cursor:pointer; }
+    .notification-permission button:disabled { opacity:.55; cursor:wait; }
+    [hidden] { display:none !important; }
+    .dependency-graph-panel { margin:0 0 16px; border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; }
+    .graph-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:11px 14px; border-bottom:1px solid var(--line); }
+    .graph-title { min-width:0; }
+    .graph-heading h2 { margin:0; font-size:14px; }
+    .graph-hint { margin:0; color:var(--muted); font-size:12px; }
+    .graph-controls { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; flex:0 0 auto; }
+    .graph-zoom-controls { display:inline-flex; align-items:center; border:1px solid #b9c0cc; border-radius:7px; overflow:hidden; background:#fff; }
+    .graph-control { appearance:none; min-height:34px; padding:5px 10px; border:0; border-left:1px solid #d7dce5; background:#fff; color:var(--ink); font:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+    .graph-control:first-child { border-left:0; }
+    .graph-control:hover:not(:disabled) { color:var(--accent); background:var(--accent-soft); }
+    .graph-control:disabled { color:#98a2b3; cursor:not-allowed; }
+    .graph-zoom-value { min-width:54px; font-variant-numeric:tabular-nums; }
+    .graph-toggle { appearance:none; min-height:34px; padding:5px 10px; border:1px solid #b9c0cc; border-radius:7px; background:#fff; color:var(--ink); font:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+    .graph-toggle:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+    .graph-scroll { max-height:520px; overflow:auto; padding:4px 8px 8px; background:#fff; }
+    #dependency-graph { display:block; min-width:100%; }
+    .graph-edge { fill:none; stroke:#aeb7c6; stroke-width:1.5; }
+    .graph-node { cursor:pointer; outline:none; }
+    .graph-node rect { fill:#fff; stroke:#98a2b3; stroke-width:1.25; rx:7; transition:fill .12s,stroke .12s,stroke-width .12s; }
+    .graph-node text { fill:var(--ink); font:650 12px ui-monospace,SFMono-Regular,Menlo,monospace; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
+    .graph-node.execution-active rect { fill:var(--active-bg); stroke:#c49b28; }
+    .graph-node.execution-ready rect { fill:var(--ready-bg); stroke:#59a979; }
+    .graph-node.execution-waiting rect { fill:var(--todo-bg); stroke:#7f97d5; }
+    .graph-node.execution-confirm rect { fill:var(--confirm-bg); stroke:#5b8fd9; }
+    .graph-node.execution-blocked rect { fill:var(--blocked-bg); stroke:#d76d65; }
+    .graph-node.execution-completed rect { fill:var(--completed-bg); stroke:#59a979; }
+    .graph-node.graph-focus rect, .graph-node:hover rect, .graph-node:focus-visible rect { fill:var(--accent-soft); stroke:var(--accent); stroke-width:2.5; }
+    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:8px; margin-bottom:12px; }
+    .card { appearance:none; width:100%; min-height:0; min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:9px; text-align:left; color:var(--ink); cursor:pointer; transition:border-color .15s,box-shadow .15s,transform .15s; }
+    .card:hover { border-color:var(--accent); transform:translateY(-1px); }
+    .card:focus-visible { outline:3px solid rgba(35,87,217,.25); outline-offset:2px; }
+    .card[aria-pressed="true"] { border-color:var(--accent); box-shadow:0 0 0 2px rgba(35,87,217,.16); }
+    .card.active { background:var(--active-bg); } .card.ready { background:var(--ready-bg); } .card.waiting { background:var(--todo-bg); } .card.confirm { background:var(--confirm-bg); } .card.blocked { background:var(--blocked-bg); } .card.cancelled { background:var(--cancelled-bg); }
+    .card h2 { font-size:13px; margin:0 0 3px; } .count { font-size:22px; font-weight:700; }
+    .ids { color:var(--muted); font-size:11px; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+    .filters { display:flex; align-items:flex-end; gap:7px; padding:10px; overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:12px; }
+    .filters label { flex:0 1 116px; min-width:88px; }
+    .filters label:first-child { flex-basis:178px; min-width:140px; }
+    label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+    .filters label { gap:2px; font-size:11px; white-space:nowrap; }
+    input:not([type="checkbox"]), select, .reset { font:inherit; min-height:34px; border:1px solid #b9c0cc; border-radius:7px; padding:5px 7px; background:white; color:var(--ink); }
+    .reset { flex:0 0 auto; cursor:pointer; align-self:end; }
+    .result { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0; color:var(--muted); }
+    .result-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+    .column-picker { position:relative; color:var(--ink); }
+    .column-picker summary { list-style:none; min-height:32px; padding:5px 9px; border:1px solid #b9c0cc; border-radius:7px; background:#fff; color:var(--ink); font-weight:650; cursor:pointer; white-space:nowrap; }
+    .column-picker summary::-webkit-details-marker { display:none; }
+    .column-picker summary::after { content:"▾"; margin-left:6px; color:var(--muted); }
+    .column-picker[open] summary { border-color:var(--accent); color:var(--accent); }
+    .column-picker-menu { position:absolute; right:0; top:calc(100% + 6px); z-index:8; display:grid; grid-template-columns:repeat(2,minmax(118px,1fr)); gap:5px 12px; width:300px; padding:10px; border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 12px 32px rgba(23,32,51,.18); }
+    .column-option { display:flex; align-items:center; gap:6px; color:var(--ink); font-size:12px; white-space:nowrap; cursor:pointer; }
+    .column-option input { width:15px; height:15px; margin:0; accent-color:var(--accent); }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    table { width:max-content; min-width:100%; border-collapse:collapse; }
+    th, td { text-align:left; vertical-align:top; padding:10px 11px; border-bottom:1px solid var(--line); }
+    th { position:sticky; top:0; padding:0; background:#f0f2f5; z-index:2; white-space:nowrap; }
+    th button { appearance:none; width:100%; min-height:42px; padding:10px 11px; border:0; background:transparent; color:var(--ink); font:inherit; font-weight:650; text-align:left; cursor:pointer; }
+    th button:hover { background:#e7eaf0; }
+    th button::after { content:"↕"; margin-left:6px; color:#98a2b3; font-size:11px; }
+    th[aria-sort="ascending"] button::after { content:"↑"; color:var(--accent); }
+    th[aria-sort="descending"] button::after { content:"↓"; color:var(--accent); }
+    tr:last-child td { border-bottom:0; }
+    tbody tr { transition:background-color .12s,box-shadow .12s; }
+    tbody tr.dependency-target, tbody tr.task-focus { background:var(--accent-soft); box-shadow:inset 4px 0 0 var(--accent); }
+    tbody tr.task-group-heading td { padding:7px 11px; border-bottom:1px solid var(--line); background:#eef1f6; color:#344054; font-size:12px; font-weight:750; letter-spacing:.02em; }
+    tbody tr.task-group-heading.confirm-group td { background:var(--confirm-bg); color:var(--confirm-fg); border-top:2px solid #5b8fd9; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef0f4; white-space:nowrap; font-weight:650; }
+    .status-todo { --tag-bg:var(--todo-bg); --tag-fg:var(--todo-fg); --tag-border:#bdcafa; }
+    .status-active { --tag-bg:var(--active-bg); --tag-fg:var(--active-fg); --tag-border:#e9c65e; }
+    .status-confirm { --tag-bg:var(--confirm-bg); --tag-fg:var(--confirm-fg); --tag-border:#9bbbea; }
+    .status-blocked { --tag-bg:var(--blocked-bg); --tag-fg:var(--blocked-fg); --tag-border:#f6aaa4; }
+    .status-completed { --tag-bg:var(--completed-bg); --tag-fg:var(--completed-fg); --tag-border:#8bd8a8; }
+    .status-cancelled { --tag-bg:var(--cancelled-bg); --tag-fg:var(--cancelled-fg); --tag-border:#c7ced8; }
+    .status-unknown { --tag-bg:var(--unknown-bg); --tag-fg:var(--unknown-fg); --tag-border:#d0d5dd; }
+    .badge.status, .dependency-chip[class*="status-"] { background:var(--tag-bg); color:var(--tag-fg); border:1px solid var(--tag-border); }
+    .execution-active .badge.execution { background:var(--active-bg); color:var(--active-fg); } .execution-ready .badge.execution { background:var(--ready-bg); color:var(--ready-fg); } .execution-waiting .badge.execution { background:var(--todo-bg); color:var(--todo-fg); } .execution-confirm .badge.execution { background:var(--confirm-bg); color:var(--confirm-fg); } .execution-blocked .badge.execution { background:var(--blocked-bg); color:var(--blocked-fg); } .execution-completed .badge.execution { background:var(--completed-bg); color:var(--completed-fg); } .execution-cancelled .badge.execution { background:var(--cancelled-bg); color:var(--cancelled-fg); }
+    .runtime-registered { background:#e8f1ff; color:#174ea6; border:1px solid #9bbbea; }
+    .runtime-running { background:#dcfae6; color:#05603a; border:1px solid #8bd8a8; }
+    .runtime-waiting { background:#fff1c2; color:#744b00; border:1px solid #e9c65e; }
+    .runtime-idle, .runtime-ended, .runtime-none { background:#eceff3; color:#475467; border:1px solid #c7ced8; }
+    .runtime-interrupted, .runtime-unknown, .runtime-stale { background:#ffe2e0; color:#912018; border:1px solid #f6aaa4; }
+    .recovery-pending { background:#fff1c2; color:#744b00; border:1px solid #e9c65e; }
+    .recovery-sent { background:#eee7ff; color:#5925a9; border:1px solid #c7afea; }
+    .dependencies { display:flex; flex-wrap:wrap; gap:4px; min-width:112px; }
+    .dependencies.empty { color:var(--muted); }
+    .dependency-chip { display:inline-flex; align-items:center; padding:1px 6px; border:1px solid #c8cfdb; border-radius:5px; background:#f7f8fa; color:#344054; font:600 11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; cursor:default; }
+    .dependency-chip:hover, .dependency-chip:focus-visible { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); outline:none; }
+    time { white-space:nowrap; border-bottom:1px dotted #98a2b3; cursor:help; }
+    .empty { display:none; padding:28px; text-align:center; color:var(--muted); }
+    th[data-column="title"], td[data-column="title"] { min-width:240px; max-width:420px; }
+    th[data-column="executor"], td[data-column="executor"] { min-width:190px; max-width:300px; }
+    @media (max-width:900px) { main { padding:16px; } .page-header { display:block; } .result { align-items:flex-start; } }
+    @media (max-width:560px) { main { padding:12px; } .summary { grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); } .notification-permission, .graph-heading { align-items:stretch; flex-direction:column; } .graph-controls { justify-content:space-between; } .result { display:block; } .result-actions { justify-content:space-between; margin-top:6px; } .column-picker-menu { position:fixed; left:12px; right:12px; top:auto; width:auto; } }
+    /* Project control room theme. Task truth and interaction behavior stay unchanged. */
+    :root {
+      color-scheme:dark;
+      --ink:#e8f5ff; --muted:#91abc1; --line:#29435d; --panel:#101e30;
+      --accent:#58d9ed; --accent-soft:rgba(88,217,237,.12);
+      --todo-bg:#172b4a; --todo-fg:#a4c5ff;
+      --active-bg:#40331b; --active-fg:#ffcf75;
+      --ready-bg:#153d36; --ready-fg:#79e2b8;
+      --confirm-bg:#173d56; --confirm-fg:#72d8f5;
+      --blocked-bg:#482631; --blocked-fg:#ff9eaa;
+      --completed-bg:#1a3a30; --completed-fg:#8ce4aa;
+      --cancelled-bg:#273344; --cancelled-fg:#aebed1;
+      --unknown-bg:#273344; --unknown-fg:#aec1d4;
+    }
+    body {
+      min-height:100vh;
+      background:
+        radial-gradient(ellipse 70% 46% at 50% -10%,rgba(35,111,159,.26),transparent 72%),
+        radial-gradient(ellipse 38% 60% at 100% 60%,rgba(13,80,110,.12),transparent 78%),
+        #07111f;
+      color:var(--ink);
+    }
+    body::before {
+      content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.35;
+      background-image:linear-gradient(rgba(69,125,161,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(69,125,161,.09) 1px,transparent 1px);
+      background-size:48px 48px;
+      mask-image:linear-gradient(to bottom,#000,transparent 75%);
+    }
+    main { position:relative; z-index:1; max-width:1920px; padding:32px clamp(18px,3vw,54px) 48px; }
+    .page-header { align-items:center; margin-bottom:22px; padding:0 0 24px; border-bottom:1px solid var(--line); position:relative; }
+    .dashboard-brand { display:flex; align-items:center; gap:18px; min-width:0; }
+    .dashboard-logo { flex:0 0 64px; width:64px; height:64px; filter:drop-shadow(0 0 14px rgba(88,217,237,.22)); }
+    .dashboard-brand-copy { min-width:0; }
+    .page-header::after { content:""; position:absolute; left:0; bottom:-1px; width:138px; height:2px; background:linear-gradient(90deg,var(--accent),transparent); box-shadow:0 0 18px var(--accent); }
+    .eyebrow { display:flex; align-items:center; gap:9px; margin-bottom:9px; color:var(--accent); font:700 11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.2em; }
+    .eyebrow::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+    h1 { margin:0 0 8px; font-size:clamp(28px,2.45vw,43px); line-height:1.2; font-weight:760; letter-spacing:.015em; text-shadow:0 0 32px rgba(74,166,208,.25); }
+    .source { max-width:1050px; color:var(--muted); font-size:12px; }
+    .source a, td a { color:#78dff0; text-decoration-color:rgba(120,223,240,.4); text-underline-offset:3px; }
+    .source a:hover, td a:hover { color:#c4f8ff; }
+    .section-caption { display:flex; align-items:center; gap:11px; margin:0 0 10px; color:#a8d5e7; font:700 11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.13em; }
+    .section-caption::before { content:""; width:3px; height:13px; border-radius:2px; background:var(--accent); box-shadow:0 0 11px rgba(88,217,237,.7); }
+    .notification-permission { border-color:#35637a; border-radius:10px; background:linear-gradient(100deg,#16344b,#10253b); box-shadow:inset 0 1px rgba(146,226,249,.1); }
+    .notification-permission button { border-color:var(--accent); background:#143a4d; color:#aaf0fa; }
+    .notification-permission button:hover { background:#1e5062; }
+    .summary { grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:20px; }
+    .card {
+      position:relative; isolation:isolate; overflow:hidden; min-height:130px; padding:17px 18px;
+      border:1px solid var(--line); border-radius:12px;
+      background:linear-gradient(145deg,#17283d,#0d1a2a 76%); color:var(--ink);
+      box-shadow:inset 0 1px rgba(184,222,245,.05),0 12px 26px rgba(0,0,0,.14);
+      transition:transform .18s,border-color .18s,box-shadow .18s;
+    }
+    .card::before { content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--card-accent); box-shadow:0 0 17px var(--card-accent); }
+    .card::after { content:""; position:absolute; width:130px; height:130px; right:-48px; top:-65px; border-radius:50%; background:var(--card-glow); filter:blur(28px); z-index:-1; }
+    .card.confirm,.card.active,.card.ready,.card.waiting,.card.blocked { background:linear-gradient(145deg,#17283d,#0d1a2a 76%); }
+    .card.confirm { --card-accent:#5cdeef; --card-glow:rgba(47,202,234,.22); }
+    .card.active { --card-accent:#ffc166; --card-glow:rgba(241,170,54,.17); }
+    .card.ready { --card-accent:#65d7ae; --card-glow:rgba(59,212,160,.14); }
+    .card.waiting { --card-accent:#829df2; --card-glow:rgba(91,118,230,.15); }
+    .card.blocked { --card-accent:#ff879a; --card-glow:rgba(234,80,112,.17); }
+    .card:hover { transform:translateY(-3px); border-color:var(--card-accent); box-shadow:0 0 0 1px var(--card-accent),0 18px 32px rgba(0,0,0,.26); }
+    .card[aria-pressed="true"] { border-color:var(--card-accent); box-shadow:0 0 0 1px var(--card-accent),0 0 24px var(--card-glow); }
+    .card:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    .card h2 { margin:0 0 4px; color:#adc3d6; font-size:12px; font-weight:650; letter-spacing:.11em; }
+    .count { color:var(--card-accent); font:700 clamp(30px,2.5vw,43px)/1.06 ui-monospace,SFMono-Regular,Menlo,monospace; text-shadow:0 0 25px var(--card-glow); }
+    .ids { margin-top:8px; color:#9cb3c7; line-height:1.45; }
+    .filters, .dependency-graph-panel, .table-wrap { border:1px solid var(--line); border-radius:12px; background:rgba(15,29,47,.95); box-shadow:inset 0 1px rgba(193,230,250,.05),0 20px 40px rgba(0,0,0,.12); }
+    .filters { gap:10px; padding:14px; margin-bottom:18px; }
+    .filters label { color:#9eb9cd; }
+    input:not([type="checkbox"]), select, .reset, .graph-zoom-controls, .graph-control, .graph-toggle, .column-picker summary {
+      border-color:#38536c; background:#0b192b; color:var(--ink);
+    }
+    input:not([type="checkbox"]):hover, select:hover, .reset:hover, .graph-toggle:hover, .column-picker summary:hover { border-color:#5db9cf; background:#132b40; color:var(--ink); }
+    input::placeholder { color:#7891a8; }
+    select option { background:#0b192b; color:var(--ink); }
+    .reset { padding-inline:13px; color:#b7dce9; }
+    .dependency-graph-panel { margin-bottom:15px; overflow:hidden; }
+    .graph-heading { padding:15px 18px; background:linear-gradient(90deg,rgba(33,75,99,.35),rgba(17,30,49,.2)); }
+    .graph-heading h2 { font-size:15px; font-weight:740; letter-spacing:.04em; }
+    .graph-hint { color:var(--muted); }
+    .graph-control { border-left-color:#38536c; }
+    .graph-control:hover:not(:disabled) { color:var(--accent); background:#16364a; }
+    .graph-control:disabled { color:#667d92; }
+    .graph-scroll { background:radial-gradient(ellipse at center,rgba(29,74,104,.24),transparent 70%),#0b192b; border-top:1px solid rgba(142,190,217,.08); }
+    .graph-edge { stroke:#4f7a96; }
+    .graph-node rect { fill:#14273a; stroke:#7398ae; }
+    .graph-node text { fill:#e5f5fb; }
+    .graph-node.execution-active rect { fill:#544020; stroke:#f5bb65; }
+    .graph-node.execution-ready rect { fill:#17473e; stroke:#60d6ac; }
+    .graph-node.execution-waiting rect { fill:#263b61; stroke:#8caefa; }
+    .graph-node.execution-confirm rect { fill:#14526a; stroke:#68daee; }
+    .graph-node.execution-blocked rect { fill:#542a3a; stroke:#ff8fa4; }
+    .graph-node.execution-completed rect { fill:#244735; stroke:#77dba5; }
+    .graph-node.graph-focus rect, .graph-node:hover rect, .graph-node:focus-visible rect { fill:#23536a; stroke:#8df2ff; filter:drop-shadow(0 0 7px rgba(88,217,237,.6)); }
+    .result { margin:0 2px 10px; color:var(--muted); }
+    .result-actions { color:#829db3; }
+    .column-picker-menu { border-color:var(--line); background:#14263a; box-shadow:0 16px 40px rgba(0,0,0,.48); }
+    .column-option { color:var(--ink); }
+    .column-picker summary::after { color:var(--accent); }
+    .table-wrap { max-height:620px; }
+    table { background:transparent; }
+    th,td { border-bottom-color:#243b51; }
+    th { background:#192d41; }
+    th button { color:#b7d6e8; font-size:12px; letter-spacing:.025em; }
+    th button:hover { background:#22425b; }
+    th button::after { color:#829fb4; }
+    tbody tr { background:rgba(11,25,42,.64); }
+    tbody tr:nth-child(even) { background:rgba(19,37,57,.7); }
+    tbody tr:hover { background:#1a384c; }
+    tbody tr.dependency-target, tbody tr.task-focus { background:#214359; box-shadow:inset 4px 0 0 var(--accent); }
+    tbody tr.task-group-heading td { background:#1b344b; color:#b9dce9; font-weight:750; text-transform:uppercase; letter-spacing:.08em; }
+    tbody tr.task-group-heading.confirm-group td { background:#15445d; color:#a3eff8; border-top-color:#58d9ed; }
+    .badge { background:#26374a; color:#d6e9f3; }
+    .status-todo { --tag-border:#5875ab; } .status-active { --tag-border:#b58b4b; }
+    .status-confirm { --tag-border:#3ba4bf; } .status-blocked { --tag-border:#b96277; }
+    .status-completed { --tag-border:#4d9f7c; } .status-cancelled { --tag-border:#667b91; }
+    .status-unknown { --tag-border:#667b91; }
+    .runtime-registered { background:#173d56; color:#89d9f1; border-color:#3e8dab; }
+    .runtime-running { background:#153d36; color:#79e2b8; border-color:#448c72; }
+    .runtime-waiting,.recovery-pending { background:#40331b; color:#ffcf75; border-color:#af8747; }
+    .runtime-idle,.runtime-ended,.runtime-none { background:#273344; color:#afc2d4; border-color:#536b82; }
+    .runtime-interrupted,.runtime-unknown,.runtime-stale { background:#482631; color:#ff9eaa; border-color:#ac6475; }
+    .recovery-sent { background:#332c50; color:#c9b0ff; border-color:#7566a8; }
+    .dependency-chip { border-color:#4c6881; background:#1a3449; color:#c6e1ed; }
+    .dependency-chip:hover,.dependency-chip:focus-visible { background:#22516a; color:#b6f4ff; }
+    time { border-bottom-color:#7794aa; }
+    .empty { color:var(--muted); }
+    .graph-task-card { position:fixed; z-index:30; width:min(460px,calc(100vw - 24px)); max-height:min(680px,calc(100vh - 24px)); display:flex; flex-direction:column; overflow:hidden; border:1px solid #4b8199; border-radius:14px; background:#102338; box-shadow:0 20px 60px rgba(0,0,0,.58),0 0 30px rgba(48,170,206,.18); color:var(--ink); }
+    .graph-task-card[hidden] { display:none; }
+    .graph-card-header { flex:0 0 auto; padding:17px 18px 14px; border-bottom:1px solid var(--line); background:linear-gradient(115deg,#173d55,#102338 74%); }
+    .graph-card-top { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .graph-card-id { color:var(--accent); font:750 12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; }
+    .graph-card-close { appearance:none; width:30px; height:30px; border:1px solid #42667e; border-radius:7px; background:#18384d; color:#d8f3fa; font:22px/1 system-ui,sans-serif; cursor:pointer; }
+    .graph-card-close:hover { background:#24516a; }
+    .graph-card-title { margin:6px 0 11px; font-size:16px; line-height:1.4; font-weight:740; overflow-wrap:anywhere; }
+    .graph-card-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 12px; color:#a9c6d8; font-size:12px; }
+    .graph-card-meta span { overflow-wrap:anywhere; }
+    .graph-card-meta strong { color:#e8f5ff; font-weight:650; }
+    .graph-card-detail { min-height:56px; overflow:auto; padding:7px 18px 17px; scrollbar-color:#42647d #102338; }
+    .graph-card-detail h3 { margin:16px 0 6px; color:#83e0ed; font-size:13px; font-weight:720; }
+    .graph-card-detail h4 { margin:13px 0 5px; color:#c1e6f0; font-size:12px; }
+    .graph-card-detail p { margin:0 0 7px; color:#c9dbe7; font-size:12px; line-height:1.62; overflow-wrap:anywhere; white-space:pre-wrap; }
+    .graph-card-detail p.bullet { padding-left:12px; text-indent:-12px; }
+    .graph-card-detail p.quote { padding-left:9px; border-left:2px solid #5a9bb3; color:#a8c9d7; }
+    .graph-card-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:0 0 auto; padding:10px 18px; border-top:1px solid var(--line); color:#8daabd; font-size:11px; }
+    .graph-card-footer button,.task-file-button { appearance:none; padding:0; border:0; background:transparent; color:#85e2f0; font:inherit; font-weight:650; cursor:pointer; text-align:left; }
+    .graph-card-footer button:hover,.task-file-button:hover { color:#c7f8ff; text-decoration:underline; }
+    .task-modal { width:min(920px,calc(100vw - 28px)); max-width:none; height:min(88vh,920px); max-height:none; padding:0; border:1px solid #4b8199; border-radius:16px; background:#0e2033; color:var(--ink); box-shadow:0 32px 90px rgba(0,0,0,.7),0 0 42px rgba(48,170,206,.14); overflow:hidden; }
+    .task-modal::backdrop { background:rgba(2,9,18,.78); backdrop-filter:blur(5px); }
+    .task-modal[open] { display:flex; flex-direction:column; }
+    .task-modal-header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex:0 0 auto; padding:20px clamp(18px,3vw,32px); border-bottom:1px solid var(--line); background:linear-gradient(110deg,#173e57,#0e2033 72%); }
+    .task-modal-kicker { color:var(--accent); font:750 11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; }
+    .task-modal-title { margin:7px 0 4px; font-size:clamp(20px,2vw,27px); line-height:1.3; overflow-wrap:anywhere; }
+    .task-modal-subtitle { margin:0; color:#a6c5d7; font-size:12px; overflow-wrap:anywhere; }
+    .task-modal-close { appearance:none; flex:0 0 auto; width:34px; height:34px; border:1px solid #4d7088; border-radius:8px; background:#173a51; color:#e5f7fb; font:24px/1 system-ui,sans-serif; cursor:pointer; }
+    .task-modal-close:hover { background:#24536d; }
+    .task-markdown { flex:1 1 auto; overflow:auto; padding:22px clamp(18px,3vw,34px) 34px; scrollbar-color:#42647d #0e2033; font-size:14px; line-height:1.72; }
+    .task-markdown h2,.task-markdown h3,.task-markdown h4,.task-markdown h5 { color:#dff6fb; line-height:1.35; }
+    .task-markdown h2 { margin:0 0 16px; font-size:21px; }
+    .task-markdown h3 { margin:28px 0 10px; padding-bottom:7px; border-bottom:1px solid #294b62; color:#91e5f0; font-size:17px; }
+    .task-markdown h4 { margin:20px 0 7px; color:#c1e9f1; font-size:15px; }
+    .task-markdown h5 { margin:16px 0 6px; font-size:14px; }
+    .task-markdown p { margin:0 0 13px; color:#d0e0eb; overflow-wrap:anywhere; }
+    .task-markdown ul,.task-markdown ol { margin:0 0 16px; padding-left:24px; color:#d0e0eb; }
+    .task-markdown li { margin:0 0 7px; padding-left:2px; overflow-wrap:anywhere; }
+    .task-markdown li::marker { color:#65d8e9; }
+    .task-markdown strong { color:#f1f9fc; }
+    .task-markdown code { padding:1px 5px; border:1px solid #35536b; border-radius:4px; background:#1a3449; color:#a3e9f2; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; }
+    .task-markdown pre { overflow:auto; margin:0 0 16px; padding:14px; border:1px solid #35536b; border-radius:8px; background:#091727; }
+    .task-markdown pre code { padding:0; border:0; background:transparent; color:#d6e8f2; white-space:pre; }
+    .task-markdown blockquote { margin:0 0 16px; padding:3px 0 3px 14px; border-left:3px solid #64cce1; color:#abc9d9; }
+    .task-markdown blockquote p { margin:0; }
+    .task-markdown a { color:#82e3f0; text-underline-offset:3px; }
+    .task-markdown .md-local-path { color:#b0c9d9; }
+    .task-markdown .md-local-path code { margin-left:4px; }
+    .task-markdown table { width:100%; min-width:0; margin:0 0 18px; border-collapse:collapse; }
+    .task-markdown th,.task-markdown td { position:static; padding:8px 10px; border:1px solid #35536b; background:transparent; white-space:normal; }
+    .task-markdown th { background:#18384c; color:#dff6fb; }
+    .task-markdown hr { border:0; border-top:1px solid #35536b; margin:20px 0; }
+    body.task-modal-open { overflow:hidden; }
+    @media (max-width:600px) { .task-modal { width:100vw; height:100dvh; max-height:none; border:0; border-radius:0; } .task-modal-header { padding:18px; } .task-markdown { padding:18px; } }
+    @media (max-width:1120px) { .summary { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media (max-width:700px) { main { padding:20px 12px 36px; } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .card { min-height:112px; padding:14px; } .page-header { padding-bottom:20px; } .dashboard-brand { gap:12px; } .dashboard-logo { flex-basis:46px; width:46px; height:46px; } }
+    @media (max-width:390px) { .summary { gap:8px; } .card { min-height:108px; } .count { font-size:30px; } }
+    @media (prefers-reduced-motion:reduce) { .card { transition:none; } }
+    .task-type { margin-left:5px; border:1px solid currentColor; background:transparent; }
+    .type-requirement { color:#93c5fd; } .type-design { color:#d8b4fe; } .type-development { color:#67e8f9; } .type-test { color:#86efac; } .type-deployment { color:#fcd34d; } .type-management { color:#fda4af; } .type-unknown { color:#cbd5e1; }
+    .graph-node text.graph-type { font-size:10px; fill:currentColor; } .graph-muted { opacity:.25; }
+    .testing-summary { padding:9px; border:1px solid var(--line); margin-bottom:10px; }
+  html.embedded-task-detail,html.embedded-task-detail body{background:transparent;margin:0;padding:0;overflow:hidden;min-height:0}
+html.embedded-task-detail body>:not(#task-modal):not(#embedded-detail-status){display:none!important}
+html.embedded-task-detail #task-modal{position:static;inset:auto;margin:0;width:100%;height:100dvh;max-height:none;border:0;border-radius:0;box-shadow:none}
+#embedded-detail-status{padding:24px;color:#bdd1e1;font:14px/1.7 system-ui}
+{{TASK_LOG_CSS}}
+</style>
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <div class="dashboard-brand">
+      {{DASHBOARD_LOGO}}
+      <div class="dashboard-brand-copy">
+        <div class="eyebrow">PROJECT OPERATIONS / TASK CONTROL</div>
+        <h1>{{DASHBOARD_TITLE}}</h1>
+        <p class="source">任务真源：<a href="TASKS.csv">TASKS.csv</a>；会话状态来自全局可重建观察缓存。数据变化时自动更新。</p>
+      </div>
+    </div>
+  </header>
+  <div class="notification-permission" id="notification-permission" hidden>
+    <span id="notification-permission-text" role="status" aria-live="polite">开启浏览器通知，待确认任务出现时提醒你。</span>
+    <button id="enable-notifications" type="button">开启通知</button>
+  </div>
+  <div class="section-caption">项目态势 · TASK POSTURE</div>
+  <section class="summary" id="posture-summary" aria-label="当前任务态势汇总">
+    <button class="card confirm" type="button" data-execution="confirm" aria-pressed="false"><h2>待确认</h2><div class="count">{{CONFIRM_COUNT}}</div><div class="ids">{{CONFIRM_IDS}}</div></button>
+    <button class="card active" type="button" data-execution="active" aria-pressed="false"><h2>进行中</h2><div class="count">{{ACTIVE_COUNT}}</div><div class="ids">{{ACTIVE_IDS}}</div></button>
+    <button class="card ready" type="button" data-execution="ready" aria-pressed="false"><h2>可开始</h2><div class="count">{{READY_COUNT}}</div><div class="ids">{{READY_IDS}}</div></button>
+    <button class="card waiting" type="button" data-execution="waiting" aria-pressed="false"><h2>等待依赖</h2><div class="count">{{WAITING_COUNT}}</div><div class="ids">{{WAITING_IDS}}</div></button>
+    <button class="card blocked" type="button" data-execution="blocked" aria-pressed="false"><h2>受阻</h2><div class="count">{{BLOCKED_COUNT}}</div><div class="ids">{{BLOCKED_IDS}}</div></button>
+  </section>
+  <section class="filters" aria-label="组合筛选">
+    <label>关键词<input id="keyword" type="search" placeholder="ID、标题、执行者、依赖……"></label>
+    <label>状态<select id="status"><option value="active-set">全部进行中</option><option value="">全部任务</option>{{STATUS_OPTIONS}}</select></label>
+    <label>类型<select id="task-type"><option value="">全部</option><option>需求</option><option>设计</option><option>开发</option><option>测试</option><option>部署</option><option>管理</option><option>未分类</option></select></label>
+    <label>边界<select id="boundary"><option value="">全部</option>{{BOUNDARY_OPTIONS}}</select></label>
+    <label>优先级<select id="priority"><option value="">全部</option>{{PRIORITY_OPTIONS}}</select></label>
+    <label>任务态势<select id="execution"><option value="">全部</option><option value="active">进行中</option><option value="ready">可开始</option><option value="waiting">等待依赖</option><option value="confirm">待确认</option><option value="blocked">受阻</option></select></label>
+    <label>执行会话<select id="execution-runtime"><option value="">全部</option><option value="none">未登记</option><option value="running">运行中</option><option value="waiting">等待输入或审批</option><option value="idle">已停止</option><option value="interrupted">已中断</option><option value="ended">会话结束</option><option value="stale">状态过期</option><option value="unknown">状态未知</option></select></label>
+    <label>项目经理会话<select id="manager-runtime"><option value="">全部</option><option value="none">未登记</option><option value="running">运行中</option><option value="waiting">等待输入或审批</option><option value="idle">已停止</option><option value="interrupted">已中断</option><option value="ended">会话结束</option><option value="stale">状态过期</option><option value="unknown">状态未知</option></select></label>
+    <label>恢复通知<select id="recovery-state"><option value="">全部</option><option value="none">未触发</option><option value="pending">待发送</option><option value="sent">已发送</option></select></label>
+    <button class="reset" id="reset" type="button">重置</button>
+  </section>
+  <section class="dependency-graph-panel" id="dependency-graph-panel" aria-labelledby="dependency-graph-title">
+    <div class="graph-heading">
+      <div class="graph-title">
+        <h2 id="dependency-graph-title">任务依赖图</h2>
+        <p class="graph-hint" id="graph-hint" aria-live="polite">悬停或聚焦节点查看预览；点击或按Enter/空格打开任务详情</p>
+      </div>
+      <div class="graph-controls" aria-label="依赖图显示选项">
+        <div class="graph-zoom-controls" role="group" aria-label="依赖图缩放">
+          <button class="graph-control" id="graph-zoom-out" type="button" aria-label="缩小依赖图">−</button>
+          <button class="graph-control graph-zoom-value" id="graph-zoom-reset" type="button" title="恢复 100%" aria-label="恢复依赖图为 100%">100%</button>
+        </div>
+        <button class="graph-toggle" id="dependency-graph-toggle" type="button" aria-expanded="true" aria-controls="dependency-graph-body">折叠</button>
+      </div>
+    </div>
+    <div id="dependency-graph-body">
+      <div class="graph-scroll"><svg id="dependency-graph" role="img" aria-label="当前筛选任务的依赖关系"></svg></div>
+    </div>
+  </section>
+  <div class="result"><span id="result" aria-live="polite"></span><div class="result-actions"><span>点击列名排序；待确认置顶</span><details class="column-picker" id="column-picker"><summary>显示字段</summary><div class="column-picker-menu" aria-label="选择列表字段">
+    <label class="column-option"><input type="checkbox" data-column-toggle value="task_id">ID</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="status">状态</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="execution">任务态势</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="execution_state">执行会话</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="manager_state">项目经理</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="recovery_state">恢复通知</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="priority">优先级</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="boundary">边界</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="title">任务</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="dependencies">依赖</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="executor">执行者</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="created_at">创建时间</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="modified_at">修改时间</label>
+    <label class="column-option"><input type="checkbox" data-column-toggle value="detail_path">详情</label>
+  </div></details></div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th data-key="task_id" data-column="task_id"><button type="button" data-sort="task_id">ID</button></th>
+        <th data-key="status" data-column="status"><button type="button" data-sort="status">状态</button></th>
+        <th data-key="execution" data-column="execution"><button type="button" data-sort="execution" title="由状态与依赖计算；待办任务分为可开始和等待依赖">任务态势</button></th>
+        <th data-key="execution_state" data-column="execution_state"><button type="button" data-sort="execution_state">执行会话</button></th>
+        <th data-key="manager_state" data-column="manager_state"><button type="button" data-sort="manager_state">项目经理</button></th>
+        <th data-key="recovery_state" data-column="recovery_state"><button type="button" data-sort="recovery_state">恢复通知</button></th>
+        <th data-key="priority" data-column="priority"><button type="button" data-sort="priority">优先级</button></th>
+        <th data-key="boundary" data-column="boundary"><button type="button" data-sort="boundary">边界</button></th>
+        <th data-key="title" data-column="title"><button type="button" data-sort="title">任务</button></th>
+        <th data-key="dependencies" data-column="dependencies"><button type="button" data-sort="dependencies">依赖</button></th>
+        <th data-key="executor" data-column="executor"><button type="button" data-sort="executor">执行者</button></th>
+        <th data-key="created_at" data-column="created_at"><button type="button" data-sort="created_at">创建时间</button></th>
+        <th data-key="modified_at" data-column="modified_at" aria-sort="descending"><button type="button" data-sort="modified_at">修改时间</button></th>
+        <th data-key="detail_path" data-column="detail_path"><button type="button" data-sort="detail_path">详情</button></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty">没有符合当前筛选条件的任务。</div>
+  </div>
+</main>
+<aside class="graph-task-card" id="graph-task-card" aria-label="依赖图任务详情" hidden>
+  <div class="graph-card-header">
+    <div class="graph-card-top"><span class="graph-card-id" id="graph-card-id"></span><button class="graph-card-close" id="graph-card-close" type="button" aria-label="关闭任务详情">×</button></div>
+    <h2 class="graph-card-title" id="graph-card-title"></h2>
+    <div class="graph-card-meta" id="graph-card-meta"></div>
+  </div>
+  <section id="graph-preview-time" class="task-time-panel activity-preview" aria-label="活动时间轴"></section>
+  <div class="graph-card-detail" id="graph-card-detail"></div>
+  <div class="graph-card-footer"><span>详情来自当前任务文件</span><button id="graph-card-link" type="button">查看完整任务详情</button></div>
+</aside>
+<dialog class="task-modal" id="task-modal" aria-labelledby="task-modal-title">
+  <div class="task-modal-header">
+    <div><div class="task-modal-kicker" id="task-modal-id"></div><h2 class="task-modal-title" id="task-modal-title"></h2><p class="task-modal-subtitle" id="task-modal-subtitle"></p></div>
+    <button class="task-modal-close" id="task-modal-close" type="button" aria-label="关闭任务详情">×</button>
+  </div>
+  <section id="task-time-panel" class="task-time-panel" aria-label="任务执行过程"></section>
+  <div class="task-detail-tabs" role="tablist" aria-label="任务详情视图">
+    <button id="task-description-tab" type="button" role="tab" aria-controls="task-markdown" aria-selected="true" tabindex="0">任务说明</button>
+    <button id="task-log-tab" type="button" role="tab" aria-controls="task-log-panel" aria-selected="false" tabindex="-1">任务日志</button>
+  </div>
+  <article class="task-markdown" id="task-markdown" role="tabpanel" aria-labelledby="task-description-tab" tabindex="0"></article>
+  <section id="task-log-panel" class="task-log-panel" role="tabpanel" aria-labelledby="task-log-tab" tabindex="0" hidden></section>
+</dialog>
+<p id="embedded-detail-status" hidden role="status"></p>
+<script>{{TASK_LOG_VENDOR}}</script>
+<script>{{TASK_LOG_SCRIPT}}</script>
+<script>
+let tasks={{TASK_JSON}};
+let runtimeSessions=new Map();
+let runtimeObservationWarning="";
+const labels={active:"进行中",ready:"可开始",waiting:"等待依赖",confirm:"待确认",blocked:"受阻",completed:"已完成",cancelled:"已取消"};
+const statusKeys={"待办":"todo","进行中":"active","待确认":"confirm","受阻":"blocked","已完成":"completed","已取消":"cancelled"};
+const runtimeLabels={none:"未登记",running:"运行中",waiting:"等待输入或审批",idle:"已停止",interrupted:"已中断",ended:"会话结束",stale:"状态过期",unknown:"状态未知"};
+const recoveryLabels={none:"未触发",pending:"待发送",sent:"已发送"};
+const controls=["keyword","status","boundary","priority","execution","execution-runtime","manager-runtime","recovery-state","task-type"].map(id=>document.getElementById(id));
+const allColumns=["task_id","status","execution","execution_state","manager_state","recovery_state","priority","boundary","title","dependencies","executor","created_at","modified_at","detail_path"];
+const defaultVisibleColumns=["task_id","status","execution_state","manager_state","priority","boundary","title","modified_at","detail_path"];
+const columnToggles=[...document.querySelectorAll("[data-column-toggle]")];
+const collator=new Intl.Collator("zh-CN",{numeric:true,sensitivity:"base"});
+const relativeFormatter=new Intl.RelativeTimeFormat("zh-CN",{numeric:"always"});
+const fullTimeFormatter=new Intl.DateTimeFormat("zh-CN",{dateStyle:"medium",timeStyle:"medium"});
+const taskById=new Map();
+const taskModal=document.getElementById("task-modal");
+const embeddedStatus=document.getElementById('embedded-detail-status');
+function showEmbeddedDetailStatus(message){
+  if(!embeddedDetail)return;
+  if(taskModal.open){document.getElementById('task-markdown').textContent=message;document.getElementById('task-log-panel').textContent=message;return;}
+  embeddedStatus.hidden=false;const close=document.createElement('button');close.type='button';close.className='task-modal-close';close.setAttribute('aria-label','关闭任务详情');close.textContent='×';close.onclick=requestTaskDetailClose;const text=document.createElement('p');text.textContent=message;embeddedStatus.replaceChildren(close,text);
+}
+if(embeddedDetail)showEmbeddedDetailStatus('正在读取任务详情…');
+function requestTaskDetailClose(){if(embeddedDetail)window.parent.postMessage({type:'PROJECT_MANAGER_DETAIL_CLOSE'},location.origin);else taskModal.close();}
+if(embeddedDetail)document.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();requestTaskDetailClose();}});
+let taskModalRequest=0;
+const graphTaskCard=document.getElementById("graph-task-card");
+const graphDetailCache=new Map();
+let graphCardTaskId="";
+let graphCardPinned=false;
+let graphCardHideTimer;
+let graphCardRequest=0;
+const notificationPermission=document.getElementById("notification-permission");
+const notificationPermissionText=document.getElementById("notification-permission-text");
+const enableNotifications=document.getElementById("enable-notifications");
+const dependencyGraphBody=document.getElementById("dependency-graph-body");
+const dependencyGraphToggle=document.getElementById("dependency-graph-toggle");
+const graphZoomOut=document.getElementById("graph-zoom-out");
+const graphZoomReset=document.getElementById("graph-zoom-reset");
+const graphZoomSteps=[0.1,0.25,0.5,0.75,1];
+const dashboardStateKey=`task-dashboard:view:v5:${location.pathname}`;
+const notifiedConfirmKey=`task-dashboard:confirm-notified:v1:${location.pathname}`;
+const sortableKeys=new Set(["task_id","status","execution","execution_state","manager_state","recovery_state","priority","boundary","title","dependencies","executor","created_at","modified_at","detail_path"]);
+let sortKey="modified_at";
+let sortDirection="desc";
+let eventSource;
+let runtimeExpiryTimer;
+let notifiedConfirmIds=new Set();
+let notificationDeliveryFeedback="";
+let graphZoom=1;
+let graphBaseWidth=720;
+let graphBaseHeight=180;
+let lastDataSignature="";
+let requestedTaskOpened=false;
+let visibleColumns=new Set(defaultVisibleColumns);
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+function parseCsv(source){
+  const rows=[];
+  let row=[],field="",quoted=false;
+  for(let index=0;index<source.length;index+=1){
+    const character=source[index];
+    if(quoted){
+      if(character==='"'&&source[index+1]==='"'){ field+='"'; index+=1; }
+      else if(character==='"') quoted=false;
+      else field+=character;
+    }else if(character==='"') quoted=true;
+    else if(character===","){ row.push(field); field=""; }
+    else if(character==="\n"){ row.push(field.replace(/\r$/, "")); rows.push(row); row=[]; field=""; }
+    else field+=character;
+  }
+  if(field||row.length){ row.push(field.replace(/\r$/, "")); rows.push(row); }
+  return rows;
+}
+function parseDependencies(value){
+  const inner=String(value||"").trim().replace(/^\[/,"").replace(/\]$/,"").trim();
+  return inner?inner.split(",").map(item=>item.trim()).filter(Boolean):[];
+}
+function executionFor(task,statusById){
+  if(task.status==="进行中") return "active";
+  if(task.status==="待确认") return "confirm";
+  if(task.status==="受阻") return "blocked";
+  if(task.status==="已完成") return "completed";
+  if(task.status==="已取消") return "cancelled";
+  return task.dependencies.every(id=>statusById.get(id)==="已完成")?"ready":"waiting";
+}
+const taskTypes=["需求","设计","开发","测试","部署","管理"];
+function typeKey(type){return ["requirement","design","development","test","deployment","management"][taskTypes.indexOf(type)]||"unknown";}
+function typeBadge(task){return `<span class="badge task-type type-${typeKey(task.task_type)}">${escapeHtml(task.task_type)}</span>`;}
+function tasksFromCsv(source){
+  const rows=parseCsv(source);
+  const headers=rows.shift()||[];
+  const index=Object.fromEntries(headers.map((header,column)=>[header,column]));
+  const required=["id","status","priority","boundary","title","dependencies","executor","created_at","modified_at","detail_path"];
+  if(required.some(header=>index[header]===undefined)) throw new Error("TASKS.csv 缺少看板必需字段");
+  const raw=rows.filter(row=>row.some(Boolean)).map(row=>Object.fromEntries(headers.map((header,column)=>[header,row[column]||""])));
+  const statusById=new Map(raw.map(task=>[task.id,task.status]));
+  return raw.map(task=>{
+    const dependencies=parseDependencies(task.dependencies);
+    const normalized={...task,task_id:task.id,dependencies,dependency_text:dependencies.join(" "),task_type:task.task_type||"未分类"};
+    normalized.execution=executionFor(normalized,statusById);
+    normalized.dependency_statuses=dependencies.map(id=>statusById.get(id)||"未知");
+    return normalized;
+  });
+}
+function runtimeFromCsv(source){
+  const rows=parseCsv(source);
+  const headers=rows.shift()||[];
+  const index=Object.fromEntries(headers.map((header,column)=>[header,column]));
+  const required=["session_id","status","status_at","last_seen_at"];
+  if(required.some(header=>index[header]===undefined)) throw new Error("全局会话缓存缺少必需字段");
+  return new Map(rows.filter(row=>row.some(Boolean)).map(row=>{
+    const session=Object.fromEntries(headers.map((header,column)=>[header,row[column]||""]));
+    return [session.session_id,session];
+  }).filter(([sessionId])=>sessionId));
+}
+function observedRuntime(threadId){
+  if(!threadId) return {state:"none",at:""};
+  const session=runtimeSessions.get(threadId);
+  if(!session) return {state:"unknown",at:""};
+  const observedAt=session.last_seen_at||session.status_at;
+  const observedTime=Date.parse(observedAt);
+  const freshnessLimit=["running","waiting"].includes(session.status)?30*60*1_000:24*60*60*1_000;
+  if(!Number.isFinite(observedTime)||Date.now()-observedTime>=freshnessLimit) return {state:"stale",at:observedAt};
+  const state=Object.hasOwn(runtimeLabels,session.status)?session.status:"unknown";
+  return {state,at:session.status_at||observedAt};
+}
+function applyRuntimeObservation(){
+  tasks.forEach(task=>{
+    const execution=observedRuntime(task.execution_thread_id);
+    const manager=observedRuntime(task.manager_thread_id);
+    task.execution_state=execution.state;
+    task.execution_state_at=execution.at;
+    task.manager_state=manager.state;
+    task.manager_state_at=manager.at;
+  });
+}
+function setDynamicOptions(id,fixed,values){
+  const select=document.getElementById(id);
+  const previous=select.value;
+  select.replaceChildren(...[...fixed,...values].map(([value,label])=>{ const option=document.createElement("option"); option.value=value; option.textContent=label; return option; }));
+  if([...select.options].some(option=>option.value===previous)) select.value=previous;
+}
+function syncTaskOptions(){
+  const statuses=["待办","进行中","待确认","受阻","已完成","已取消"].filter(status=>tasks.some(task=>task.status===status));
+  const boundaries=[...new Set(tasks.map(task=>task.boundary))].sort(collator.compare);
+  const priorities=[...new Set(tasks.map(task=>task.priority))].sort((left,right)=>Number(left.slice(1))-Number(right.slice(1)));
+  setDynamicOptions("status",[["active-set","全部进行中"],["","全部任务"]],statuses.map(value=>[value,value]));
+  setDynamicOptions("boundary",[["","全部"]],boundaries.map(value=>[value,value]));
+  setDynamicOptions("priority",[["","全部"]],priorities.map(value=>[value,value]));
+}
+function compactIds(items,limit=6){
+  if(!items.length) return "无";
+  const visible=items.slice(0,limit).map(task=>task.task_id).join("、");
+  return items.length>limit?`${visible} · 另 ${items.length-limit} 项`:visible;
+}
+function updateSummary(){
+  document.querySelectorAll(".card[data-execution]").forEach(card=>{
+    const items=tasks.filter(task=>task.execution===card.dataset.execution);
+    card.querySelector(".count").textContent=String(items.length);
+    card.querySelector(".ids").textContent=compactIds(items);
+  });
+}
+function syncColumnControls(){
+  columnToggles.forEach(toggle=>{ toggle.checked=visibleColumns.has(toggle.value); });
+}
+function applyColumnVisibility(){
+  document.querySelectorAll("[data-column]").forEach(cell=>{ cell.hidden=!visibleColumns.has(cell.dataset.column); });
+  document.querySelectorAll(".task-group-heading td").forEach(cell=>{ cell.colSpan=visibleColumns.size; });
+  syncColumnControls();
+}
+function persistDashboardState(){
+  const state={
+    filters:Object.fromEntries(controls.map(control=>[control.id,control.value])),
+    sortKey,
+    sortDirection,
+    graphExpanded:dependencyGraphToggle.getAttribute("aria-expanded")==="true",
+    graphZoom,
+    visibleColumns:[...visibleColumns],
+  };
+  try{ localStorage.setItem(dashboardStateKey,JSON.stringify(state)); }catch(error){}
+}
+function restoreDashboardState(){
+  let state={};
+  try{
+    const stored=JSON.parse(localStorage.getItem(dashboardStateKey)||"null");
+    if(stored&&typeof stored==="object"&&!Array.isArray(stored)) state=stored;
+  }catch(error){}
+  if(state.filters&&typeof state.filters==="object") controls.forEach(control=>{
+    const value=state.filters[control.id];
+    if(typeof value!=="string") return;
+    if(control.tagName==="SELECT"&&![...control.options].some(option=>option.value===value)) return;
+    control.value=value;
+  });
+  if(sortableKeys.has(state.sortKey)) sortKey=state.sortKey;
+  if(state.sortDirection==="asc"||state.sortDirection==="desc") sortDirection=state.sortDirection;
+  if(graphZoomSteps.includes(state.graphZoom)) graphZoom=state.graphZoom;
+  if(Array.isArray(state.visibleColumns)){
+    const restored=state.visibleColumns.filter(column=>allColumns.includes(column));
+    if(restored.length) visibleColumns=new Set(restored);
+  }
+  syncColumnControls();
+  setDependencyGraphExpanded(state.graphExpanded!==false,false);
+}
+const sortValue=(task,key)=>key==="dependencies"?task.dependencies.join(" "):key==="execution"?labels[task.execution]:key==="execution_state"||key==="manager_state"?runtimeLabels[task[key]||"none"]:key==="recovery_state"?recoveryLabels[task[key]||"none"]:task[key];
+function compareTasks(left,right){
+  let result;
+  if(sortKey==="created_at"||sortKey==="modified_at") result=Date.parse(left[sortKey])-Date.parse(right[sortKey]);
+  else result=collator.compare(String(sortValue(left,sortKey)),String(sortValue(right,sortKey)));
+  if(result===0) result=collator.compare(left.task_id,right.task_id);
+  return sortDirection==="asc"?result:-result;
+}
+function relativeTime(value){
+  const delta=Date.parse(value)-Date.now();
+  const absolute=Math.abs(delta);
+  const units=absolute<60_000?["second",1_000]:absolute<3_600_000?["minute",60_000]:absolute<86_400_000?["hour",3_600_000]:absolute<2_592_000_000?["day",86_400_000]:absolute<31_536_000_000?["month",2_592_000_000]:["year",31_536_000_000];
+  return relativeFormatter.format(Math.round(delta/units[1]),units[0]);
+}
+function timeCell(value){
+  if(!value) return '<span class="dependencies empty">—</span>';
+  const exact=`${fullTimeFormatter.format(new Date(value))} · ${value}`;
+  return `<time datetime="${escapeHtml(value)}" title="${escapeHtml(exact)}">${escapeHtml(relativeTime(value))}</time>`;
+}
+function updateRelativeTimes(){
+  if(document.hidden) return;
+  if(graphTimingPreview&&!graphTaskCard.hidden&&!document.querySelector('#graph-preview-time .activity-mark:hover')&&!document.activeElement?.closest('#graph-preview-time .activity-mark'))TaskLog.renderTiming(document.getElementById('graph-preview-time'),graphTimingPreview.task,graphTimingPreview.parsed,Date.now(),{preview:true});
+  if(currentTimingParsed&&taskModal.open&&!document.querySelector('#task-time-panel .activity-mark:hover')&&!document.activeElement?.closest('#task-time-panel .activity-mark'))TaskLog.renderTiming(document.getElementById('task-time-panel'),taskById.get(currentModalTaskId),currentTimingParsed);
+  document.querySelectorAll("time[datetime]").forEach(element=>{
+    if(element.closest(".task-log-panel"))return;
+    const next=relativeTime(element.dateTime);
+    if(element.textContent!==next) element.textContent=next;
+  });
+}
+function runtimeBadge(state,at,thread,turn){
+  const key=state||"none";
+  const details=[thread,turn,at].filter(Boolean).join(" · ");
+  return `<span class="badge runtime-${escapeHtml(key)}" title="${escapeHtml(details||runtimeLabels[key])}">${escapeHtml(runtimeLabels[key]||key)}</span>${at?`<div>${timeCell(at)}</div>`:""}`;
+}
+function recoveryBadge(state,at,turn){
+  const key=state||"none";
+  const details=[turn,at].filter(Boolean).join(" · ");
+  return `<span class="badge ${key==="none"?"runtime-none":`recovery-${escapeHtml(key)}`}" title="${escapeHtml(details||recoveryLabels[key])}">${escapeHtml(recoveryLabels[key]||key)}</span>${at?`<div>${timeCell(at)}</div>`:""}`;
+}
+function dependencyCell(task){
+  if(!task.dependencies.length) return '<span class="dependencies empty">无</span>';
+  return `<span class="dependencies">${task.dependencies.map((dependency,index)=>{ const dependencyStatus=task.dependency_statuses[index]||"未知"; const key=statusKeys[dependencyStatus]||"unknown"; return `<span class="dependency-chip status-${key}" tabindex="0" data-dependency-id="${escapeHtml(dependency)}" title="${escapeHtml(dependency)} · ${escapeHtml(dependencyStatus)}；悬停定位对应任务">${escapeHtml(dependency)}</span>`; }).join("")}</span>`;
+}
+function graphDefaultHint(){
+  return "悬停或聚焦节点查看预览；点击或按Enter/空格打开任务详情";
+}
+function dependencyLayers(graphTasks){
+  const graphIds=new Set(graphTasks.map(task=>task.task_id));
+  const memo=new Map();
+  const visiting=new Set();
+  function visit(task){
+    if(memo.has(task.task_id)) return memo.get(task.task_id);
+    if(visiting.has(task.task_id)) return 0;
+    visiting.add(task.task_id);
+    const predecessors=task.dependencies.filter(id=>graphIds.has(id)).map(id=>taskById.get(id));
+    const layer=predecessors.length?Math.max(...predecessors.map(visit))+1:0;
+    visiting.delete(task.task_id);
+    memo.set(task.task_id,layer);
+    return layer;
+  }
+  graphTasks.forEach(visit);
+  return memo;
+}
+function svgElement(name,attributes={}){
+  const element=document.createElementNS("http://www.w3.org/2000/svg",name);
+  Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,String(value)));
+  return element;
+}
+function applyDependencyGraphZoom(){
+  const svg=document.getElementById("dependency-graph");
+  svg.style.width=`${Math.round(graphBaseWidth*graphZoom)}px`;
+  svg.style.height=`${Math.round(graphBaseHeight*graphZoom)}px`;
+  graphZoomReset.textContent=`${Math.round(graphZoom*100)}%`;
+  const stepIndex=graphZoomSteps.indexOf(graphZoom);
+  graphZoomOut.disabled=stepIndex===0;
+}
+function setDependencyGraphZoom(nextZoom,persist=true){
+  graphZoom=nextZoom;
+  applyDependencyGraphZoom();
+  if(persist) persistDashboardState();
+}
+function shrinkDependencyGraph(){
+  const stepIndex=graphZoomSteps.indexOf(graphZoom);
+  const nextIndex=Math.max(0,stepIndex-1);
+  setDependencyGraphZoom(graphZoomSteps[nextIndex]);
+}
+function renderDependencyGraph(graphTasks,selected=new Set(graphTasks.map(task=>task.task_id))){
+  const svg=document.getElementById("dependency-graph");
+  svg.replaceChildren();
+  if(!graphTasks.length){
+    svg.setAttribute("viewBox","0 0 720 120");
+    graphBaseWidth=720;
+    graphBaseHeight=120;
+    applyDependencyGraphZoom();
+    const message=svgElement("text",{x:360,y:60,"text-anchor":"middle",fill:"#667085"});
+    message.textContent="当前筛选没有可显示的任务";
+    svg.append(message);
+    return;
+  }
+  const layers=dependencyLayers(graphTasks);
+  const columns=[];
+  graphTasks.forEach(task=>{ const layer=layers.get(task.task_id)||0; (columns[layer]||(columns[layer]=[])).push(task); });
+  columns.forEach(column=>column.sort((left,right)=>collator.compare(left.task_id,right.task_id)));
+  const maxRows=Math.max(...columns.map(column=>column.length));
+  const width=Math.max(720,columns.length*190+80);
+  const height=Math.max(180,maxRows*58+70);
+  const positions=new Map();
+  columns.forEach((column,columnIndex)=>{
+    const gap=height/(column.length+1);
+    column.forEach((task,rowIndex)=>positions.set(task.task_id,{x:80+columnIndex*190,y:gap*(rowIndex+1)}));
+  });
+  svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  graphBaseWidth=width;
+  graphBaseHeight=height;
+  applyDependencyGraphZoom();
+  const defs=svgElement("defs");
+  const marker=svgElement("marker",{id:"dependency-arrow",viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:6,markerHeight:6,orient:"auto-start-reverse"});
+  marker.append(svgElement("path",{d:"M 0 0 L 10 5 L 0 10 z",fill:"#aeb7c6"}));
+  defs.append(marker);
+  svg.append(defs);
+  graphTasks.forEach(task=>task.dependencies.filter(id=>positions.has(id)).forEach(dependency=>{
+    const start=positions.get(dependency);
+    const end=positions.get(task.task_id);
+    svg.append(svgElement("path",{class:"graph-edge",d:`M ${start.x+60} ${start.y} L ${end.x-60} ${end.y}`,"marker-end":"url(#dependency-arrow)"}));
+  }));
+  columns.flat().forEach(task=>{
+    const position=positions.get(task.task_id);
+    const group=svgElement("g",{class:`graph-node execution-${task.execution}${selected.has(task.task_id)?"":" graph-muted"}`,tabindex:0,"data-task-id":task.task_id,"aria-label":`${task.task_id} · ${task.task_type}：${task.title}`});
+    const title=svgElement("title");
+    title.textContent=task.title;
+    group.append(title,svgElement("rect",{x:position.x-60,y:position.y-23,width:120,height:46}));
+    const label=svgElement("text",{x:position.x,y:position.y-7});
+    label.textContent=task.task_id;
+    const type=svgElement("text",{x:position.x,y:position.y+10,class:`graph-type type-${typeKey(task.task_type)}`});
+    type.textContent=task.task_type;
+    group.append(label,type);
+    svg.append(group);
+  });
+}
+function highlightTask(taskId,active){
+  const row=document.getElementById(`task-${taskId}`);
+  if(row) row.classList.toggle("task-focus",active);
+  document.querySelectorAll(".graph-node").forEach(node=>{ if(node.dataset.taskId===taskId) node.classList.toggle("graph-focus",active); });
+  const task=taskById.get(taskId);
+  document.getElementById("graph-hint").textContent=active&&task?`${task.task_id} · ${task.title}`:graphDefaultHint();
+}
+function graphCardNode(){
+  return [...document.querySelectorAll(".graph-node")].find(node=>node.dataset.taskId===graphCardTaskId);
+}
+function positionGraphCard(){
+  const node=graphCardNode();
+  if(!node||graphTaskCard.hidden) return;
+  const anchor=node.getBoundingClientRect();
+  const width=graphTaskCard.offsetWidth;
+  const height=graphTaskCard.offsetHeight;
+  const spaceRight=innerWidth-anchor.right;
+  const left=spaceRight>=width+24?anchor.right+14:anchor.left-width-14;
+  graphTaskCard.style.left=`${Math.max(12,Math.min(innerWidth-width-12,left))}px`;
+  graphTaskCard.style.top=`${Math.max(12,Math.min(innerHeight-height-12,anchor.top-24))}px`;
+}
+function renderGraphDetail(markdown){
+  const container=document.getElementById("graph-card-detail");
+  container.replaceChildren();
+  const lines=markdown.split(/\r?\n/);
+  const firstSection=lines.findIndex(line=>/^##\s/.test(line));
+  for(const line of (firstSection>=0?lines.slice(firstSection):lines)){
+    const value=line.trim();
+    if(!value) continue;
+    const heading=value.match(/^(#{2,4})\s+(.+)$/);
+    const element=document.createElement(heading?(heading[1].length===2?"h3":"h4"):"p");
+    if(heading) element.textContent=heading[2];
+    else if(/^[-*]\s/.test(value)){ element.className="bullet"; element.textContent=`• ${value.slice(2)}`; }
+    else if(/^\d+\.\s/.test(value)){ element.className="bullet"; element.textContent=value; }
+    else if(value.startsWith("> ")){ element.className="quote"; element.textContent=value.slice(2); }
+    else element.textContent=value;
+    container.append(element);
+  }
+  positionGraphCard();
+}
+async function loadGraphDetail(task,request){
+  try{
+    const markdown=await getTaskMarkdown(task);
+    if(request===graphCardRequest&&graphCardTaskId===task.task_id) {const parsed=TaskLog.parse(markdown);graphTimingPreview={task,parsed};TaskLog.renderTiming(document.getElementById('graph-preview-time'),task,parsed,Date.now(),{preview:true});renderGraphDetail(parsed.description);if(task.task_type==="测试")void renderTestingSummary(task,markdown,document.getElementById("graph-card-detail"));}
+  }catch(error){
+    if(request===graphCardRequest&&graphCardTaskId===task.task_id){
+      document.getElementById("graph-preview-time").textContent="活动时间轴不可用：详情读取失败";document.getElementById("graph-card-detail").textContent=`任务详情读取失败：${error.message}`;
+      positionGraphCard();
+    }
+  }
+}
+async function getTaskMarkdown(task){
+  const key=`${task.detail_path}\n${task.modified_at}`;
+  let cached=graphDetailCache.get(key);
+  if(cached===undefined){
+    cached=fetch(new URL(task.detail_path,location.href),{cache:"no-store"}).then(async response=>{
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.text();
+    });
+    graphDetailCache.set(key,cached);
+  }
+  try{
+    const markdown=await cached;
+    graphDetailCache.set(key,markdown);
+    return markdown;
+  }catch(error){
+    graphDetailCache.delete(key);
+    throw error;
+  }
+}
+function appendMarkdownInline(parent,source){
+  const pattern=/\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+  let cursor=0,match;
+  while((match=pattern.exec(source))){
+    if(match.index>cursor) parent.append(document.createTextNode(source.slice(cursor,match.index)));
+    let element;
+    if(match[1]!==undefined){
+      const target=match[2].trim();
+      if(/^https?:\/\//i.test(target)){
+        element=document.createElement("a");
+        element.href=target;
+        element.target="_blank";
+        element.rel="noopener noreferrer";
+        element.textContent=match[1];
+      }else if(target.startsWith("evidence/")&&!target.split("/").includes("..")){
+        element=document.createElement("a");element.href=new URL(target,location.href).href;element.textContent=match[1];element.target="_blank";element.rel="noopener";
+      }else{
+        element=document.createElement("span");
+        element.className="md-local-path";
+        element.append(document.createTextNode(match[1]));
+        const code=document.createElement("code");
+        code.textContent=target;
+        element.append(code);
+      }
+    }else if(match[3]!==undefined){ element=document.createElement("code"); element.textContent=match[3]; }
+    else if(match[4]!==undefined){ element=document.createElement("strong"); element.textContent=match[4]; }
+    else { element=document.createElement("em"); element.textContent=match[5]; }
+    parent.append(element);
+    cursor=pattern.lastIndex;
+  }
+  if(cursor<source.length) parent.append(document.createTextNode(source.slice(cursor)));
+}
+async function renderTestingSummary(task,markdown,container){
+  const box=document.createElement("div");box.className="testing-summary";box.textContent="测试清单读取中…";container.prepend(box);
+  try{
+    const specPath=markdown.match(/^- 测试清单：(.+)$/m)?.[1]?.trim();
+    if(!specPath) throw new Error("缺少清单入口");
+    const get=async file=>{const url=new URL(file,location.href);if(url.origin!==location.origin||!file.startsWith("evidence/"))throw new Error("不安全清单路径");const response=await fetch(url,{cache:"no-store"});if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.text();};
+    const spec=JSON.parse(await get(specPath));if(spec.task_id!==task.task_id)throw new Error("任务身份不匹配");
+    const rows=parseCsv(await get(spec.issues)),headers=rows.shift()||[],status=headers.indexOf("status"),severity=headers.indexOf("severity");
+    if(status<0||severity<0)throw new Error("清单字段无效");
+    const issues=rows.filter(row=>row.some(Boolean)),open=issues.filter(row=>!["已关闭","暂不处理"].includes(row[status]));
+    const scenarios=parseCsv(await get(spec.scenarios));const runs=(await get(spec.runs)).split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line));const latest=runs.at(-1);const tested=Object.values(latest?.scenario_results||{}).filter(value=>["通过","发现问题"].includes(value)).length;
+    box.textContent=`已测场景 ${tested}/${Math.max(0,scenarios.length-1)} · 开放问题 ${open.length} · 阻断问题 ${open.filter(row=>row[severity]==="阻断").length} · `;
+    const link=document.createElement("a");link.href=new URL(spec.issues,location.href).href;link.textContent="问题清单";box.append(link);
+  }catch(error){box.textContent=`测试清单不可用：${error.message}（不代表零问题）`;}
+}
+let currentModalTaskId="";
+function renderMarkdownDocument(source,container){
+  container.replaceChildren();
+  const lines=source.split(/\r?\n/);
+  let list=null,listType="";
+  for(let index=0;index<lines.length;index+=1){
+    const line=lines[index].trim();
+    if(!line){ list=null; listType=""; continue; }
+    if(index===0&&/^#\s/.test(line)) continue;
+    if(/^```/.test(line)){
+      const code=[];
+      while(++index<lines.length&&!/^```/.test(lines[index].trim())) code.push(lines[index]);
+      const pre=document.createElement("pre");
+      const content=document.createElement("code");
+      content.textContent=code.join("\n");
+      pre.append(content);
+      container.append(pre);
+      list=null; listType="";
+      continue;
+    }
+    const heading=line.match(/^(#{1,6})\s+(.+)$/);
+    if(heading){
+      const level=Math.min(5,heading[1].length+1);
+      const element=document.createElement(`h${level}`);
+      appendMarkdownInline(element,heading[2]);
+      container.append(element);
+      list=null; listType="";
+      continue;
+    }
+    if(/^---+$/.test(line)){ container.append(document.createElement("hr")); list=null; listType=""; continue; }
+    if(/^\|.*\|$/.test(line)&&/^\|[\s:|-]+\|$/.test((lines[index+1]||"").trim())){
+      const table=document.createElement("table"),head=document.createElement("thead"),body=document.createElement("tbody");
+      const row=document.createElement("tr");
+      for(const cell of line.slice(1,-1).split("|")){ const th=document.createElement("th"); appendMarkdownInline(th,cell.trim()); row.append(th); }
+      head.append(row);
+      index+=1;
+      while(index+1<lines.length&&/^\|.*\|$/.test(lines[index+1].trim())){
+        index+=1;
+        const cells=document.createElement("tr");
+        for(const cell of lines[index].trim().slice(1,-1).split("|")){ const td=document.createElement("td"); appendMarkdownInline(td,cell.trim()); cells.append(td); }
+        body.append(cells);
+      }
+      table.append(head,body); container.append(table); list=null; listType=""; continue;
+    }
+    const bullet=line.match(/^([-*]|\d+\.)\s+(.+)$/);
+    if(bullet){
+      const kind=/\d/.test(bullet[1])?"ol":"ul";
+      if(!list||listType!==kind){ list=document.createElement(kind); container.append(list); listType=kind; }
+      const item=document.createElement("li"); appendMarkdownInline(item,bullet[2]); list.append(item); continue;
+    }
+    list=null; listType="";
+    if(/^>\s?/.test(line)){
+      const quote=document.createElement("blockquote"),paragraph=document.createElement("p");
+      appendMarkdownInline(paragraph,line.replace(/^>\s?/,"")); quote.append(paragraph); container.append(quote); continue;
+    }
+    const paragraph=document.createElement("p");
+    appendMarkdownInline(paragraph,line);
+    container.append(paragraph);
+  }
+}
+function selectTaskDetailTab(log,focus=false){
+  for(const [id,selected] of [['task-description-tab',!log],['task-log-tab',log]]){const tab=document.getElementById(id);tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;if(selected&&focus)tab.focus();}
+  document.getElementById('task-markdown').hidden=log;document.getElementById('task-log-panel').hidden=!log;
+}
+for(const id of ['task-description-tab','task-log-tab']){
+  document.getElementById(id).onclick=()=>selectTaskDetailTab(id==='task-log-tab');
+  document.getElementById(id).onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();selectTaskDetailTab(e.key==='End'||(e.key!=='Home'&&id==='task-description-tab'),true);}};
+}
+let currentModalMarkdown=null,currentTimingParsed=null,graphTimingPreview=null;
+async function openTaskModal(taskId){
+  const sameTask=currentModalTaskId===taskId&&taskModal.open;
+  if(!sameTask)selectTaskDetailTab(false);
+  currentModalTaskId=taskId;
+  const task=taskById.get(taskId);
+  if(!task) return;
+  hideGraphCard(true);
+  const request=++taskModalRequest;
+  document.getElementById("task-modal-id").textContent=embeddedDetail?`${document.title.replace(/\s*任务看板$/, "")} · ${task.task_id}`:task.task_id;
+  document.getElementById("task-modal-title").textContent=task.title;
+  document.getElementById("task-modal-subtitle").textContent=`${task.task_type} · ${task.status} · ${task.priority} · ${task.boundary}`;
+  const content=document.getElementById("task-markdown");
+  if(!sameTask){
+    currentModalMarkdown=null;currentTimingParsed=null;document.getElementById('task-time-panel').textContent='正在统计时间分布…';
+    content.textContent="正在读取任务文件…";
+    document.getElementById("task-log-panel").textContent="正在读取任务日志…";
+    content.scrollTop=0;document.getElementById("task-log-panel").scrollTop=0;
+  }
+  if(embeddedDetail)embeddedStatus.hidden=true;
+  if(!taskModal.open){if(embeddedDetail)taskModal.show();else taskModal.showModal();}
+  document.body.classList.add("task-modal-open");
+  try{
+    const markdown=await getTaskMarkdown(task);
+    if(request===taskModalRequest&&taskModal.open&&markdown!==currentModalMarkdown) {
+      const scroll=content.scrollTop,parsed=TaskLog.parse(markdown);renderMarkdownDocument(parsed.description,content);content.scrollTop=scroll;
+      currentTimingParsed=parsed;TaskLog.renderTiming(document.getElementById('task-time-panel'),task,parsed);
+      TaskLog.render(document.getElementById('task-log-panel'),parsed,new URL(task.detail_path,location.href).href);
+      currentModalMarkdown=markdown;
+      if(task.task_type==="测试") void renderTestingSummary(task,markdown,content);
+    }
+  }catch(error){
+    if(request===taskModalRequest&&taskModal.open){currentTimingParsed=null;document.getElementById('task-time-panel').textContent='时间统计不可用：任务文件读取失败';content.textContent=`任务文件读取失败：${error.message}`;document.getElementById('task-log-panel').textContent=content.textContent;}
+  }
+}
+function showGraphCard(node,pin=false){
+  const task=taskById.get(node.dataset.taskId);
+  if(!task||graphCardPinned&&!pin&&graphCardTaskId!==task.task_id) return;
+  clearTimeout(graphCardHideTimer);
+  if(graphCardTaskId&&graphCardTaskId!==task.task_id) highlightTask(graphCardTaskId,false);
+  graphCardTaskId=task.task_id;
+  if(pin) graphCardPinned=true;
+  graphTaskCard.hidden=false;
+  document.getElementById("graph-card-id").textContent=task.task_id;
+  document.getElementById("graph-card-title").textContent=task.title;
+  const metadata=document.getElementById("graph-card-meta");
+  metadata.replaceChildren();
+  for(const [label,value] of [["类型",task.task_type],["状态",task.status],["优先级",task.priority],["态势",labels[task.execution]],["执行者",task.executor],["边界",task.boundary],["依赖",task.dependencies.join("、")||"无"],["执行会话",runtimeLabels[task.execution_state||"none"]],["项目经理",runtimeLabels[task.manager_state||"none"]],["更新",task.modified_at.slice(0,16).replace("T"," ")]]){
+    const cell=document.createElement("span");
+    const strong=document.createElement("strong");
+    strong.textContent=`${label}：`;
+    cell.append(strong,document.createTextNode(value||"—"));
+    metadata.append(cell);
+  }
+  const key=`${task.detail_path}\n${task.modified_at}`;
+  if(graphTaskCard.dataset.detailKey!==key){
+    graphTaskCard.dataset.detailKey=key;
+    graphTimingPreview=null;document.getElementById("graph-preview-time").textContent="正在读取活动时间轴…";
+    document.getElementById("graph-card-detail").textContent="正在读取任务详情…";
+    void loadGraphDetail(task,++graphCardRequest);
+  }
+  highlightTask(task.task_id,true);
+  positionGraphCard();
+}
+function hideGraphCard(force=false){
+  if(graphCardPinned&&!force) return;
+  clearTimeout(graphCardHideTimer);
+  graphCardRequest+=1;
+  if(graphCardTaskId) highlightTask(graphCardTaskId,false);
+  graphCardTaskId="";
+  graphCardPinned=false;
+  graphTaskCard.hidden=true;
+  graphTaskCard.dataset.detailKey="";
+}
+function queueHideGraphCard(){
+  if(graphCardPinned) return;
+  clearTimeout(graphCardHideTimer);
+  graphCardHideTimer=setTimeout(()=>hideGraphCard(),180);
+}
+function setDependencyGraphExpanded(expanded,persist=true){
+  if(!expanded) hideGraphCard(true);
+  dependencyGraphBody.hidden=!expanded;
+  dependencyGraphToggle.setAttribute("aria-expanded",String(expanded));
+  dependencyGraphToggle.textContent=expanded?"折叠":"展开";
+  if(persist) persistDashboardState();
+}
+function updateSortHeaders(){
+  document.querySelectorAll("th[data-key]").forEach(header=>{
+    const active=header.dataset.key===sortKey;
+    header.setAttribute("aria-sort",active?(sortDirection==="asc"?"ascending":"descending"):"none");
+  });
+}
+function updateCards(){
+  const execution=document.getElementById("execution").value;
+  document.querySelectorAll(".card[data-execution]").forEach(card=>card.setAttribute("aria-pressed",String(card.dataset.execution===execution)));
+}
+function taskRow(task){
+  return `<tr id="task-${escapeHtml(task.task_id)}" data-task-id="${escapeHtml(task.task_id)}" class="execution-${task.execution}"><td data-column="task_id"><strong>${escapeHtml(task.task_id)}</strong> ${typeBadge(task)}</td><td data-column="status"><span class="badge status status-${statusKeys[task.status]||"unknown"}">${escapeHtml(task.status)}</span></td><td data-column="execution"><span class="badge execution">${labels[task.execution]}</span></td><td data-column="execution_state">${runtimeBadge(task.execution_state,task.execution_state_at,task.execution_thread_id,task.execution_turn_id)}</td><td data-column="manager_state">${runtimeBadge(task.manager_state,task.manager_state_at,task.manager_thread_id,task.manager_turn_id)}</td><td data-column="recovery_state">${recoveryBadge(task.recovery_state,task.recovery_state_at,task.recovery_turn_id)}</td><td data-column="priority">${escapeHtml(task.priority)}</td><td data-column="boundary">${escapeHtml(task.boundary)}</td><td data-column="title">${escapeHtml(task.title)}</td><td data-column="dependencies">${dependencyCell(task)}</td><td data-column="executor">${escapeHtml(task.executor)}</td><td data-column="created_at">${timeCell(task.created_at)}</td><td data-column="modified_at">${timeCell(task.modified_at)}</td><td data-column="detail_path"><button class="task-file-button" type="button" data-open-task="${escapeHtml(task.task_id)}" title="查看 ${escapeHtml(task.detail_path)}">任务文件</button></td></tr>`;
+}
+function taskGroupHeading(label,count,className=""){
+  return `<tr class="task-group-heading ${className}"><td colspan="${visibleColumns.size}">${escapeHtml(label)} · ${count} 项</td></tr>`;
+}
+function filteredTasks(){
+  const [keyword,status,boundary,priority,execution,executionRuntime,managerRuntime,recoveryState,taskType]=controls.map(control=>control.value.trim());
+  const query=keyword.toLocaleLowerCase("zh-CN");
+  return tasks.filter(task=>{
+    const haystack=[task.task_id,task.task_type,task.status,task.priority,task.boundary,task.title,task.dependency_text,task.executor,task.created_at,task.modified_at,task.detail_path,task.execution_state,task.manager_state,task.recovery_state,task.execution_thread_id,task.manager_thread_id].join(" ").toLocaleLowerCase("zh-CN");
+    const statusMatches=status==="active-set"?!["已完成","已取消"].includes(task.status):!status||task.status===status;
+    const executionState=task.execution_state||"none";
+    const managerState=task.manager_state||"none";
+    const recovery=task.recovery_state||"none";
+    return (!taskType||task.task_type===taskType)&&statusMatches&&(!query||haystack.includes(query))&&(!boundary||task.boundary===boundary)&&(!priority||task.priority===priority)&&(!execution||task.execution===execution)&&(!executionRuntime||executionState===executionRuntime)&&(!managerRuntime||managerState===managerRuntime)&&(!recoveryState||recovery===recoveryState);
+  });
+}
+function render(){
+  const filtered=filteredTasks();
+  const confirmTasks=filtered.filter(task=>task.execution==="confirm").sort(compareTasks);
+  const otherTasks=filtered.filter(task=>task.execution!=="confirm").sort(compareTasks);
+  const rows=(confirmTasks.length?taskGroupHeading("待确认",confirmTasks.length,"confirm-group")+confirmTasks.map(taskRow).join(""):"")+(otherTasks.length?taskGroupHeading("其他任务",otherTasks.length)+otherTasks.map(taskRow).join(""):"");
+  document.getElementById("rows").innerHTML=rows;
+  document.getElementById("result").textContent=`显示 ${filtered.length} / ${tasks.length} 项任务${runtimeObservationWarning?` · WARNING：${runtimeObservationWarning}`:""}`;
+  document.getElementById("empty").style.display=filtered.length?"none":"block";
+  renderDependencyGraph(document.getElementById("task-type").value ? tasks : filtered,new Set(filtered.map(task=>task.task_id)));
+  if(graphCardTaskId){
+    const node=graphCardNode();
+    if(node) showGraphCard(node,graphCardPinned);
+    else hideGraphCard(true);
+  }
+  updateSummary();
+  updateSortHeaders();
+  updateCards();
+  applyColumnVisibility();
+}
+function highlightDependency(chip,active){
+  const target=document.getElementById(`task-${chip.dataset.dependencyId}`);
+  if(target) target.classList.toggle("dependency-target",active);
+}
+async function refreshTasks(force=false){
+  try{
+    const sourceUrl=new URL("TASKS.csv",location.href);
+    sourceUrl.searchParams.set("_",String(Date.now()));
+    const response=await fetch(sourceUrl,{cache:"no-store"});
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const source=await response.text();
+    let runtimeSource="";
+    runtimeObservationWarning="";
+    try{
+      const runtimeUrl=new URL("session-runtime.csv",location.href);
+      runtimeUrl.searchParams.set("_",String(Date.now()));
+      const runtimeResponse=await fetch(runtimeUrl,{cache:"no-store"});
+      if(!runtimeResponse.ok) throw new Error(`HTTP ${runtimeResponse.status}`);
+      runtimeSource=await runtimeResponse.text();
+      runtimeSessions=runtimeFromCsv(runtimeSource);
+    }catch(error){
+      runtimeSessions=new Map();
+      runtimeObservationWarning=`会话观察不可用（${error.message}）`;
+    }
+    scheduleRuntimeExpiry();
+    const signature=`${source}\n--runtime--\n${runtimeSource}`;
+    if(force||signature!==lastDataSignature){
+      tasks=tasksFromCsv(source);
+      applyRuntimeObservation();
+      lastDataSignature=signature;
+      taskById.clear();
+      tasks.forEach(task=>taskById.set(task.task_id,task));
+      syncTaskOptions();
+      render();
+      updateConfirmNotifications();
+      const requestedTask=new URL(location.href).searchParams.get("task");
+      if(!requestedTaskOpened&&requestedTask&&taskById.has(requestedTask)){requestedTaskOpened=true;void openTaskModal(requestedTask);}
+      else if(embeddedDetail&&!taskById.has(requestedTask))showEmbeddedDetailStatus('任务不存在或已从项目中移除。');
+    }
+  }catch(error){
+      if(embeddedDetail)showEmbeddedDetailStatus(`任务详情读取失败：${error.message}`);
+    document.getElementById("result").textContent=`读取 TASKS.csv 失败：${error.message}`;
+  }
+}
+function scheduleRuntimeExpiry(){
+  clearTimeout(runtimeExpiryTimer);
+  const now=Date.now();
+  const deadlines=[...runtimeSessions.values()].map(session=>{
+    const observed=Date.parse(session.last_seen_at||session.status_at);
+    const lifetime=["running","waiting"].includes(session.status)?30*60_000:24*60*60_000;
+    return observed+lifetime;
+  }).filter(deadline=>Number.isFinite(deadline)&&deadline>now);
+  if(!deadlines.length) return;
+  runtimeExpiryTimer=setTimeout(()=>{
+    applyRuntimeObservation();
+    render();
+    scheduleRuntimeExpiry();
+  },Math.min(...deadlines)-now+20);
+}
+function connectUpdates(){
+  if(!/^https?:$/.test(location.protocol)||!window.EventSource) return;
+  eventSource=new EventSource(new URL("events",location.href));
+  eventSource.addEventListener("change",()=>{ graphDetailCache.clear(); void refreshTasks(true).then(()=>{if(taskModal.open&&currentModalTaskId)void openTaskModal(currentModalTaskId);}); });
+}
+function updatePermissionPrompt(feedback=""){
+  const supported="Notification" in window;
+  const permission=supported?Notification.permission:"unsupported";
+  const served=/^https?:$/.test(location.protocol);
+  const message=feedback||notificationDeliveryFeedback;
+  notificationPermission.hidden=served&&supported&&window.isSecureContext&&permission==="granted"&&!message;
+  enableNotifications.hidden=!served||!supported||!window.isSecureContext||permission!=="default";
+  if(!served){ notificationPermissionText.textContent="本地文件无法可靠申请浏览器通知。请通过工作台的项目内看板链接，以 http://127.0.0.1 或 http://localhost 地址打开。"; return; }
+  if(!supported){ notificationPermissionText.textContent="当前浏览器不支持桌面通知。"; return; }
+  if(!window.isSecureContext){ notificationPermissionText.textContent="当前地址不支持通知权限，请使用 HTTPS 或本机 http://127.0.0.1、http://localhost 地址打开看板。"; return; }
+  if(permission==="denied"){
+    notificationPermissionText.textContent="浏览器已阻止此站点通知。请点击地址栏左侧的站点信息，将通知设为允许，然后刷新页面。";
+    return;
+  }
+  notificationPermissionText.textContent=message||"开启浏览器通知，待确认任务出现时提醒你。";
+}
+function reportNotificationFailure(error){
+  notificationDeliveryFeedback=`浏览器通知发送失败：${error?.message||"浏览器未能显示通知"}。请检查浏览器站点权限及系统通知设置；任务仍保留待提醒。`;
+  console.warn(notificationDeliveryFeedback,error);
+  updatePermissionPrompt();
+}
+function updateConfirmNotifications(){
+  if(embeddedDetail)return;
+  const current=new Set(tasks.filter(task=>task.status==="待确认").map(task=>task.task_id));
+  try{
+    const saved=JSON.parse(localStorage.getItem(notifiedConfirmKey)||"[]");
+    notifiedConfirmIds=new Set(Array.isArray(saved)?saved:[]);
+  }catch(error){ notifiedConfirmIds=new Set(); }
+  notifiedConfirmIds=new Set([...notifiedConfirmIds].filter(id=>current.has(id)));
+  if(/^https?:$/.test(location.protocol)&&window.isSecureContext&&"Notification" in window&&Notification.permission==="granted"){
+    const fresh=[...current].filter(id=>!notifiedConfirmIds.has(id));
+    if(fresh.length){
+      try{
+        const notice=new Notification(fresh.length===1?`${fresh[0]} 待确认`:`${fresh.length} 项任务待确认`,{
+          body:fresh.slice(0,5).join("、")+(fresh.length>5?` 等 ${fresh.length} 项`:""),
+          tag:`task-dashboard-confirm:${location.pathname}`,
+        });
+        notificationDeliveryFeedback="";
+        notice.onerror=event=>{
+          // 构造成功不等于投递成功；失败后撤销本次去重，下一次数据更新可重试。
+          try{
+            const saved=JSON.parse(localStorage.getItem(notifiedConfirmKey)||"[]");
+            notifiedConfirmIds=new Set(Array.isArray(saved)?saved:[]);
+          }catch(error){}
+          fresh.forEach(id=>notifiedConfirmIds.delete(id));
+          try{ localStorage.setItem(notifiedConfirmKey,JSON.stringify([...notifiedConfirmIds])); }catch(error){}
+          reportNotificationFailure(event.error);
+        };
+        notice.onclick=()=>{
+          window.focus();
+          document.getElementById("execution").value="confirm";
+          render();
+          persistDashboardState();
+        };
+        fresh.forEach(id=>notifiedConfirmIds.add(id));
+      }catch(error){ reportNotificationFailure(error); }
+    }
+  }
+  try{ localStorage.setItem(notifiedConfirmKey,JSON.stringify([...notifiedConfirmIds])); }catch(error){}
+  updatePermissionPrompt();
+}
+controls.forEach(control=>control.addEventListener(control.id==="keyword"?"input":"change",()=>{ render(); persistDashboardState(); }));
+enableNotifications.addEventListener("click",async()=>{
+  enableNotifications.disabled=true;
+  notificationPermissionText.textContent="正在请求浏览器通知权限…";
+  let feedback="";
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission==="default") feedback="浏览器未授予通知权限。若地址栏出现“通知已屏蔽”，点击图标并选择“允许”；也可从地址栏左侧的站点信息开启通知。";
+  }catch(error){
+    feedback=`通知权限请求失败：${error?.message||"浏览器未接受请求"}。请检查当前站点的通知设置。`;
+  }finally{
+    enableNotifications.disabled=false;
+    updateConfirmNotifications();
+    updatePermissionPrompt(feedback);
+  }
+});
+graphZoomOut.addEventListener("click",shrinkDependencyGraph);
+graphZoomReset.addEventListener("click",()=>setDependencyGraphZoom(1));
+dependencyGraphToggle.addEventListener("click",()=>setDependencyGraphExpanded(dependencyGraphToggle.getAttribute("aria-expanded")!=="true"));
+document.getElementById("reset").addEventListener("click",()=>{ controls.forEach(control=>control.value=""); document.getElementById("status").value="active-set"; sortKey="modified_at"; sortDirection="desc"; visibleColumns=new Set(defaultVisibleColumns); render(); persistDashboardState(); controls[0].focus(); });
+document.querySelectorAll("[data-sort]").forEach(button=>button.addEventListener("click",()=>{ const key=button.dataset.sort; if(sortKey===key) sortDirection=sortDirection==="asc"?"desc":"asc"; else { sortKey=key; sortDirection=(key==="created_at"||key==="modified_at")?"desc":"asc"; } render(); persistDashboardState(); }));
+columnToggles.forEach(toggle=>toggle.addEventListener("change",()=>{ if(toggle.checked) visibleColumns.add(toggle.value); else if(visibleColumns.size>1) visibleColumns.delete(toggle.value); else toggle.checked=true; applyColumnVisibility(); persistDashboardState(); }));
+document.querySelectorAll(".card[data-execution]").forEach(card=>card.addEventListener("click",()=>{ const control=document.getElementById("execution"); control.value=control.value===card.dataset.execution?"":card.dataset.execution; render(); persistDashboardState(); }));
+document.getElementById("rows").addEventListener("mouseover",event=>{ const chip=event.target.closest(".dependency-chip"); if(chip) highlightDependency(chip,true); });
+document.getElementById("rows").addEventListener("mouseout",event=>{ const chip=event.target.closest(".dependency-chip"); if(chip&&!chip.contains(event.relatedTarget)) highlightDependency(chip,false); });
+document.getElementById("rows").addEventListener("focusin",event=>{ const chip=event.target.closest(".dependency-chip"); if(chip) highlightDependency(chip,true); });
+document.getElementById("rows").addEventListener("focusout",event=>{ const chip=event.target.closest(".dependency-chip"); if(chip) highlightDependency(chip,false); });
+document.getElementById("rows").addEventListener("click",event=>{
+  const button=event.target.closest("[data-open-task]");
+  if(button) void openTaskModal(button.dataset.openTask);
+});
+document.getElementById("dependency-graph").addEventListener("mouseover",event=>{ const node=event.target.closest(".graph-node"); if(node&&!node.contains(event.relatedTarget)) showGraphCard(node); });
+document.getElementById("dependency-graph").addEventListener("mouseout",event=>{ const node=event.target.closest(".graph-node"); if(node&&!node.contains(event.relatedTarget)) queueHideGraphCard(); });
+document.getElementById("dependency-graph").addEventListener("focusin",event=>{ const node=event.target.closest(".graph-node"); if(node) showGraphCard(node); });
+document.getElementById("dependency-graph").addEventListener("focusout",event=>{ const node=event.target.closest(".graph-node"); if(node&&!graphTaskCard.contains(event.relatedTarget)) queueHideGraphCard(); });
+document.getElementById("dependency-graph").addEventListener("click",event=>{ const node=event.target.closest(".graph-node"); if(node) void openTaskModal(node.dataset.taskId); });
+document.getElementById("dependency-graph").addEventListener("keydown",event=>{
+  const node=event.target.closest(".graph-node");
+  if(node&&(event.key==="Enter"||event.key===" ")){
+    event.preventDefault();
+    void openTaskModal(node.dataset.taskId);
+  }
+});
+graphTaskCard.addEventListener("mouseenter",()=>clearTimeout(graphCardHideTimer));
+graphTaskCard.addEventListener("mouseleave",queueHideGraphCard);
+document.getElementById("graph-card-close").addEventListener("click",()=>{
+  const node=graphCardNode();
+  hideGraphCard(true);
+  if(node) node.focus();
+});
+document.getElementById("graph-card-link").addEventListener("click",()=>void openTaskModal(graphCardTaskId));
+document.getElementById("task-modal-close").addEventListener("click",()=>requestTaskDetailClose());
+taskModal.addEventListener("close",()=>{ taskModalRequest+=1; document.body.classList.remove("task-modal-open"); });
+taskModal.addEventListener("click",event=>{ if(event.target===taskModal) taskModal.close(); });
+document.addEventListener("keydown",event=>{ if(event.key==="Escape") hideGraphCard(true); });
+document.addEventListener("pointerdown",event=>{
+  if(graphCardPinned&&!graphTaskCard.contains(event.target)&&!event.target.closest(".graph-node")) hideGraphCard(true);
+});
+document.querySelector(".graph-scroll").addEventListener("scroll",positionGraphCard);
+window.addEventListener("scroll",positionGraphCard,{passive:true});
+window.addEventListener("resize",positionGraphCard);
+document.addEventListener("visibilitychange",updateRelativeTimes);
+setInterval(updateRelativeTimes,1000);
+setDependencyGraphExpanded(true,false);
+syncColumnControls();
+updatePermissionPrompt();
+void refreshTasks(true).then(()=>{ restoreDashboardState(); render(); connectUpdates(); });
+</script>
+</body>
+</html>

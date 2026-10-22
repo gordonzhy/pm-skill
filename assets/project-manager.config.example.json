@@ -1,0 +1,16 @@
+{
+  "configVersion": 1,
+  "project": {
+    "name": "示例项目",
+    "prefix": "DEMO",
+    "group": "未分组"
+  },
+  "taskSystem": {
+    "csv": "TASKS.csv",
+    "detailsDir": "work-items",
+    "statuses": ["待办", "进行中", "待确认", "受阻", "已完成", "已取消"]
+  },
+  "workbench": {
+    "port": 9999
+  }
+}
