@@ -65,3 +65,9 @@ Monitoring runs independently of the browser page. Reminders do not automaticall
 [MIT License](LICENSE)
 
 The opt-in [deterministic local CLI](docs/cli-contract.md) provides schema discovery, local CSV transactions, consistent snapshots and bounded recovery on supported macOS filesystems. Host execution and workbench integration through this interface remain unavailable.
+
+### Verification tiers
+
+CI selects checks from the changed paths. Documentation and skill rules run isolated installation, product structure, local Markdown link file targets, and installer tests. Ordinary scripts run the Node and Python regressions, including the ordinary file-store tests. Storage, contracts, recovery, installation, CI infrastructure, and unknown changes run the full suite. Deleted and renamed paths participate in selection; unavailable or empty Git baselines select the full suite.
+
+Run `python3 scripts/verify_team_share.py` for the full suite (the default), or explicitly pass `--tier quick` or `--tier regular` for a narrower local check. Regular verification excludes only the eight explicitly named `[stress]` real-process interruption scenarios; their exhaustive checkpoint loops and assertions remain in full verification. Manual workflow runs and the weekly scheduled workflow always run the full suite. A quick or regular result does not establish exhaustive interruption recovery.

@@ -65,3 +65,9 @@ $skill-installer 将 https://github.com/gordonzhy/pm-skill 仓库根目录的技
 [MIT License](LICENSE)
 
 独立启用的[确定性本地 CLI](docs/cli-contract.zh-CN.md)提供 schema 发现、本地 CSV 事务、一致快照与受限恢复，写入限受支持的 macOS 文件系统；该接口的宿主执行及工作台接入仍不可用。
+
+### 验证分层
+
+CI 按变更路径选择检查。文档和技能规则执行隔离安装、产品结构、本地 Markdown 链接文件目标和安装器测试。普通脚本执行 Node 与 Python 回归，包含常规 file-store 测试。存储、契约、恢复、安装、CI 基础设施及未知变更执行全套。删除与重命名前后的路径均参与判断；Git 基线不可用或差异为空时保守执行全套。
+
+`python3 scripts/verify_team_share.py` 默认仍执行完整验证；本地可显式传入 `--tier quick` 或 `--tier regular` 选择较窄范围。常规验证只排除八个带 `[stress]` 标记的真实进程中断场景；全套保留其全部中断点循环与断言。手动工作流和每周定期工作流始终执行全套。快速或常规验证通过不代表穷尽中断恢复验证通过。

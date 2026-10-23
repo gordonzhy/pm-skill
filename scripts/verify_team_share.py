@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -17,6 +18,9 @@ def run(command: list[str], *, env: dict[str, str], cwd: Path | None = None, tim
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tier", choices=("quick", "regular", "full"), default="full")
+    args = parser.parse_args()
     source = Path(__file__).resolve().parent.parent
     node = shutil.which("node")
     if node is None:
@@ -45,9 +49,17 @@ def main() -> int:
         if not node_tests:
             raise RuntimeError("隔离安装后找不到 Node 测试")
 
+        run([sys.executable, str(installed / "scripts" / "check_structure.py")], cwd=installed, env=env)
+        if args.tier == "quick":
+            for pattern in ("test_install_local.py", "test_ci_scope.py", "test_check_structure.py"):
+                run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern], cwd=installed, env=env)
+            print("Quick verification passed: isolated installation, structure, links and installer tests; runtime regressions not run.")
+            return 0
+
         # Exhaustive real-process interruption tests may exceed fifteen minutes.
-        run([node, "--test", *node_tests], cwd=installed, env=env, timeout=1800)
+        run([node, "--test", *(["--test-skip-pattern=^\\[stress\\] "] if args.tier == "regular" else []), *node_tests], cwd=installed, env=env, timeout=1800)
         run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test_*.py"], cwd=installed, env=env)
+        print(f"Verification tier: {args.tier}")
         print("通过：隔离安装、已支持能力/未支持拒绝 Node 回归和 Python 检查；未修改用户级 Codex 配置。完整 D3 独立执行，本结果不作完整 D3 放行。")
     return 0
 
