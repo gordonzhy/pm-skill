@@ -98,31 +98,35 @@ DEFINITIONS.Next.properties.reason = ref('Code');
 const resultShape=DEFINITIONS.Result;
 DEFINITIONS.Result={anyOf:Object.entries(ERRORS).map(([code,spec])=>obj({...resultShape.properties,code:{const:code},outcome:{const:spec.outcome},exit:{const:spec.exit}},resultShape.required))};
 export class ContractError extends Error {
-  constructor(code) { super(code); this.code = Object.hasOwn(ERRORS,code) ? code : 'INTERNAL_ERROR'; }
+  constructor(code, field) { super(code); this.code = Object.hasOwn(ERRORS,code) ? code : 'INTERNAL_ERROR'; if(field) this.field = field; }
 }
-export const fail = code => { throw new ContractError(code); };
+export const fail = (code, field) => { throw new ContractError(code, field); };
 
 // JSON Schema subset used by this registry; unknown schema keywords never arrive from callers.
-export function validate(value, schema) {
-  if (schema.$ref) return validate(value, DEFINITIONS[schema.$ref.split('/').at(-1)]);
-  if (schema.anyOf) { if (!schema.anyOf.some(s => {try {validate(value,s);return true;} catch {return false;}})) fail('INVALID_INPUT'); return; }
-  if (schema.const !== undefined && value !== schema.const) fail('SCHEMA_UNSUPPORTED');
-  if (schema.enum && !schema.enum.includes(value)) fail('INVALID_INPUT');
+// `at` is the schema path of the failing node. It only ever contains registry-defined property
+// names and indices, so a rejection can name the field without echoing a supplied key or value.
+const child = (at,key) => at ? `${at}.${key}` : key;
+export function validate(value, schema, at='') {
+  if (schema.$ref) return validate(value, DEFINITIONS[schema.$ref.split('/').at(-1)], at);
+  if (schema.anyOf) { if (!schema.anyOf.some(s => {try {validate(value,s);return true;} catch {return false;}})) fail('INVALID_INPUT',at); return; }
+  if (schema.const !== undefined && value !== schema.const) fail('SCHEMA_UNSUPPORTED',at);
+  if (schema.enum && !schema.enum.includes(value)) fail('INVALID_INPUT',at);
   const type = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
-  if (schema.type && !(Array.isArray(schema.type)?schema.type:[schema.type]).some(t=> t === type || (t==='integer' && Number.isSafeInteger(value)))) fail('INVALID_INPUT');
-  if (typeof value==='number' && (!Number.isSafeInteger(value) || value < (schema.minimum ?? -Infinity) || value > (schema.maximum ?? Infinity))) fail('INVALID_INPUT');
+  if (schema.type && !(Array.isArray(schema.type)?schema.type:[schema.type]).some(t=> t === type || (t==='integer' && Number.isSafeInteger(value)))) fail('INVALID_INPUT',at);
+  if (typeof value==='number' && (!Number.isSafeInteger(value) || value < (schema.minimum ?? -Infinity) || value > (schema.maximum ?? Infinity))) fail('INVALID_INPUT',at);
   if (typeof value==='string') {
-    if(value.length < (schema.minLength??0) || value.length > (schema.maxLength??8192) || (schema.pattern && !new RegExp(schema.pattern).test(value))) fail('INVALID_INPUT');
-    if(schema.format==='managed-path' && (value.startsWith('/') || value.includes('\\') || value.split('/').some(p=>!p||p==='.'||p==='..') || /[:\x00-\x1f]/.test(value))) fail('PATH_UNSAFE');
+    if(value.length < (schema.minLength??0) || value.length > (schema.maxLength??8192) || (schema.pattern && !new RegExp(schema.pattern).test(value))) fail('INVALID_INPUT',at);
+    if(schema.format==='managed-path' && (value.startsWith('/') || value.includes('\\') || value.split('/').some(p=>!p||p==='.'||p==='..') || /[:\x00-\x1f]/.test(value))) fail('PATH_UNSAFE',at);
   }
   if (type==='object') {
-    if(Object.getPrototypeOf(value)!==Object.prototype && Object.getPrototypeOf(value)!==null) fail('INVALID_INPUT');
-    for(const key of schema.required??[]) if(!Object.hasOwn(value,key)) fail('INVALID_INPUT');
-    for(const key of Object.keys(value)) { if(!Object.hasOwn(schema.properties??{},key)) fail('INVALID_INPUT'); validate(value[key],schema.properties[key]); }
+    if(Object.getPrototypeOf(value)!==Object.prototype && Object.getPrototypeOf(value)!==null) fail('INVALID_INPUT',at);
+    for(const key of schema.required??[]) if(!Object.hasOwn(value,key)) fail('INVALID_INPUT',child(at,key));
+    // An unexpected key is reported at its parent path; the supplied key name is never echoed.
+    for(const key of Object.keys(value)) { if(!Object.hasOwn(schema.properties??{},key)) fail('INVALID_INPUT',at); validate(value[key],schema.properties[key],child(at,key)); }
   }
   if(type==='array') {
-    if(value.length>(schema.maxItems??4096)) fail('INVALID_INPUT');
-    if(schema.uniqueItems && new Set(value.map(v=>JSON.stringify(v))).size!==value.length) fail('INVALID_INPUT');
-    for(const item of value) validate(item,schema.items);
+    if(value.length>(schema.maxItems??4096)) fail('INVALID_INPUT',at);
+    if(schema.uniqueItems && new Set(value.map(v=>JSON.stringify(v))).size!==value.length) fail('INVALID_INPUT',at);
+    value.forEach((item,index) => validate(item,schema.items,`${at}[${index}]`));
   }
 }
