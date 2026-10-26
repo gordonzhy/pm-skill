@@ -4,12 +4,13 @@
 
 **Plan and deliver AI coding tasks with a shared workbench and an execution follow-up safety net.**
 
-![PM Skill — Task workbench collaboration and execution follow-up safety net](docs/images/product-overview.png)
+![PM Skill — Shared workbench, execution follow-up and proactive knowledge capture in development](docs/images/product-overview.png)
 
-Turn a project goal into clear tasks, coordinate independent execution, and accept delivery with evidence. Pair PM Skill with [PM Server](https://github.com/gordonzhy/pm-server) to see progress across projects and bring missed callbacks or handoffs back to the manager's attention. Tasks, decisions and delivery history stay in your repository, so the next session can pick up the work.
+Turn a project goal into clear tasks, coordinate independent execution, and accept delivery with evidence. Pair PM Skill with [PM Server](https://github.com/gordonzhy/pm-server) to see progress across projects and bring missed callbacks or handoffs back to the manager's attention. Tasks, decisions and delivery history stay in your repository, so the next session can pick up the work. The knowledge workflow now in development adds a way to preserve useful findings and find them again when a similar question returns.
 
 ## What you get
 
+- **Proactive knowledge capture — in development.** Keep useful decisions, user corrections, proven methods and clearly marked unverified leads in authorized private records. Search existing knowledge first, organize within an explicit budget, and return to the source before reusing a finding. `scripts/knowledge.py` supports bounded lookup and rebuildable project partitions; see the [knowledge workflow](references/knowledge.md).
 - **Tasks with a clear finish line.** Record goals, ownership, dependencies and acceptance conditions; dispatch work to dedicated execution sessions.
 - **A shared task workbench.** With PM Server, view tasks, dependencies, execution observations and delivery evidence across registered projects.
 - **An execution follow-up safety net.** Background monitoring flags inactive execution and missing or stale observations, then reminds the manager to check results and coordinate the next step when callbacks or handoffs are missed.
@@ -37,6 +38,16 @@ The baseline is the existing Skill management workflow, with optional PM Server 
 Server features require explicit setup, runtime observation and a configured notification backend. ✅ refers to the manager-led workflow already in use; it does not promise fully unattended execution or every host/version combination. See the [full platform matrix](docs/platform-support.md).
 
 **Experimental additions:** the `0.1.0-rc.8` source includes Unreleased native CLI work. Shared local transactions and worker handoffs are separate from host integration; native continuation/message, strong-host manager handover and native workbench integration remain unavailable. Full unattended real-host delivery is still unverified. See the [CLI contract](docs/cli-contract.md).
+
+## Preserve what you learn — in development
+
+A useful finding should help the next task as well as the current conversation. During an active session, the manager checks existing knowledge before adding a short record with its source, conditions and verification status. Small batches can be organized within an explicit budget; when the same question returns, search a few candidates and read the original records before applying them.
+
+Knowledge stays in authorized private project sources. A rebuildable private cross-project index provides navigation only for explicitly included sources; it does not copy the full records or grant access to other projects. Lightweight tools handle fields, index building, search and consistency checks. The model still judges meaning, evidence and applicability.
+
+Formal retrospectives are a separate step: the manager proposes a scope and budget, then proceeds after user confirmation. An explicit request covering that scope already provides confirmation. Active capture happens during session work; it does not promise scheduled background activity.
+
+This source preview has passed source review and isolated synthetic validation. Installation, real-project use and full model adherence remain unverified; GitHub source availability does not establish those results. The readiness table above describes the established management workflow. The [knowledge guide](references/knowledge.md) documents the preview CLI and its limits.
 
 ## Installation
 

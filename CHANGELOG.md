@@ -5,6 +5,12 @@
 
 ## Unreleased
 
+- Add bounded first-knowledge inventory during authorized manager initialization: explicit state inspection, enumerated source plans, source-bound initial entries and idempotent partial recovery. No automatic project scan or consent proof.
+
+
+- Add explicitly scoped private knowledge recording, rebuildable partitions, bounded literal/regex lookup and deterministic consistency/budget checks. Formal retrospectives follow explicit user confirmation; tools do not prove consent or semantic truth.
+
+
 - Add an explicit private owner host entry for connection inspection, dormant controller preparation and serving registered dynamic tools; authentication and model instructions remain explicit owner actions.
 
 - Add snapshot-bound obligation evaluation and an experimental in-process host profile with guarded claims, external inventory, candidate checks and bounded monitoring. Default stdin CLI host effects remain disabled; authenticated real-host validation is pending.

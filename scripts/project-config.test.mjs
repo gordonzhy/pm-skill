@@ -54,7 +54,7 @@ test("obsolete project port is ignored while invalid reasoning fails", async () 
 test("PMO binding is local, validated, and does not expose unrelated fields", async () => {
   const first = await mkdtemp(path.join(os.tmpdir(), "project-manager-pmo-"));
   const second = await mkdtemp(path.join(os.tmpdir(), "project-manager-pmo-"));
-  const id = "01a114ce-30d2-7a92-b739-c58cfa820906";
+  const id = "11111111-1111-4111-8111-111111111111"; // Fictional UUID for this fixture.
   await writeFile(path.join(first, ".env"), `PROJECT_MANAGER_PMO_THREAD_ID='${id}'\nUNRELATED_SECRET=keep-private\n`);
   const config = await readProjectConfig(first);
   assert.equal(config.pmoThreadId, id);
