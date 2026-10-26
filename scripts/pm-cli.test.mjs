@@ -106,3 +106,18 @@ test('missing runtime dependencies produce a stable boot error without a local p
   const root=mkdtempSync(join(tmpdir(),'cli-startup-'));
   try{writeFileSync(join(root,'pm-cli.mjs'),readFileSync(cli));const child=spawnSync(process.execPath,[join(root,'pm-cli.mjs'),'help'],{encoding:'utf8',env:{PATH:process.env.PATH,HOME:root}});assert.equal(child.status,70);assert.equal(child.stderr,'');assert.equal(JSON.parse(child.stdout).code,'INTERNAL_ERROR');assert(!child.stdout.includes(root));}finally{rmSync(root,{recursive:true,force:true});}
 });
+test('input validate names the failing schema field without echoing supplied keys or values',()=>{
+  const q={protocol:VERSION.protocol,query:'project inspect',repo:'/example/atlas',snapshot_token:null,input:{}};
+  const missing=spawnSync(process.execPath,[cli,'input','validate'],{input:JSON.stringify(q),encoding:'utf8'});
+  assert.equal(missing.status,20);assert.equal(missing.stderr,'');
+  const rejected=JSON.parse(missing.stdout);
+  assert.equal(rejected.valid,false);assert.equal(rejected.code,'INVALID_INPUT');assert.equal(rejected.field,'projection');assert.equal(rejected.executable,false);
+  assert(!missing.stdout.includes('/example/atlas'));
+  const supplied=structuredClone(q);supplied.projection='summary';supplied.private_marker_xyz={secret:'VALUE_SENTINEL'};
+  const echoed=spawnSync(process.execPath,[cli,'input','validate'],{input:JSON.stringify(supplied),encoding:'utf8'});
+  const unknown=JSON.parse(echoed.stdout);
+  assert.equal(unknown.valid,false);assert.equal(unknown.field,null);assert(!echoed.stdout.includes('private_marker_xyz'));assert(!echoed.stdout.includes('VALUE_SENTINEL'));
+  const nested=request();delete nested.input.scope.criteria;
+  const inner=spawnSync(process.execPath,[cli,'input','validate'],{input:JSON.stringify(nested),encoding:'utf8'});
+  assert.equal(inner.status,20);assert.equal(JSON.parse(inner.stdout).field,'input.scope.criteria');
+});

@@ -30,7 +30,7 @@ python3 scripts/install_local.py --codex-root /path/to/codex-root
 
 This targets `<codex-root>/skills/project-manager`, preserving a backup of an existing installation. It is a local update helper, not a prerequisite for standard Codex installation. Confirm that your target host discovers that location; for current standard discovery locations use the local placement above. Avoid installing the same skill in multiple locations.
 
-For Claude Code and DSH, use the actual host's Skill discovery mechanism. See `references/adapters/`. Native loading and full collaboration capabilities have not been validated for all three hosts; copying files alone is not proof of host integration.
+For Claude Code, user-scope Skills load from `~/.claude/skills/<name>/`: place the complete folder at `~/.claude/skills/project-manager/` and invoke `/project-manager`. Loading and slash invocation were observed on Claude Code 2.1.310 in one local environment; session listing, continuation, callbacks and acceptance remain unverified there. For DSH, use the actual host's Skill discovery mechanism. See `references/adapters/`. Native loading and full collaboration capabilities have not been validated for all three hosts; copying files alone is not proof of host integration.
 
 ## Local CLI short flow
 
@@ -51,11 +51,24 @@ A name in help is not proof that it is executable. Use entries marked `local-com
 | Initialize an empty project and create work | `project init` → `work create` |
 | Adjust scope or dependencies | `work amend` / `work dependencies` |
 | Read current source | `snapshot`; explicit projection=summary; private-local only for local details |
-| Validate input or inspect the contract | `input validate` / `plan`; neither executes nor grants permission |
+| Validate input or inspect the contract | `input validate` / `plan`; neither executes nor grants permission. A rejected `input validate` names the failing schema field in `field`, without echoing supplied keys or values |
 | Publish a local worker handoff | `worker dispatch register`, then `pm-worker finish --config <private-config>` |
 | Manager pull and disposition | `worker reconcile` → `worker handoff inspect` → `worker handoff consume` → `worker handoff dispose` |
 
-Except discovery and pm-worker, these commands read a JSON request from stdin, for example `node scripts/pm-cli.mjs work create < request.json`. Writes carry protocol, repository/project ID, local-owner policy, a unique idempotency key, current expected_revision and input. The first revision comes from capability.empty_project_revision; subsequent revisions come from the last successful result or a fresh snapshot. Queries use query rather than command. Use generated schema for exact fields and the [request/trust contract](cli-contract.md). Never execute a placeholder revision or turn a conflict into an overwrite; retries of one intent keep its exact request/key.
+Except discovery and pm-worker, these commands read a JSON request from stdin, for example `node scripts/pm-cli.mjs work create < request.json`. Writes carry protocol, repository/project ID, local-owner policy, a unique idempotency key, current expected_revision and input. The first revision comes from capability.empty_project_revision; subsequent revisions come from the last successful result or a fresh snapshot. Queries use query rather than command and always carry `projection` (`summary` or `private-local`); omitting it is rejected as `INVALID_INPUT`. For example:
+
+```json
+{
+  "protocol": "project-files/1",
+  "query": "project validate",
+  "repo": "/example/atlas",
+  "projection": "summary",
+  "snapshot_token": null,
+  "input": {}
+}
+```
+
+Use generated schema for exact fields and the [request/trust contract](cli-contract.md). `scope.criteria` entries are Refs, not prose: an ASCII identifier matching `^[A-Za-z0-9][A-Za-z0-9._:-]*$` up to 128 characters. Put human-readable acceptance text in `scope.goal`. Never execute a placeholder revision or turn a conflict into an overwrite; retries of one intent keep its exact request/key.
 
 Run a complete fictional flow:
 

@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- Make `input validate` report the failing schema field without echoing supplied keys or values; document that queries require `projection`, that `scope.criteria` entries are Refs, and the Claude Code user-scope skill path.
+
 - Add bounded first-knowledge inventory during authorized manager initialization: explicit state inspection, enumerated source plans, source-bound initial entries and idempotent partial recovery. No automatic project scan or consent proof.
 
 

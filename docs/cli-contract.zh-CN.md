@@ -14,7 +14,7 @@
 
 ## 一条命令完成关联
 
-请求结构和纯虚构示例见[英文参考](cli-contract.md)。写入包含 command/repo/project_id/actor_proof/idempotency_key/expected_revision/input；查询包含 query/repo/projection/snapshot_token/input。输入 JSON 上限 1 MiB、64 层，拒绝未知字段、重复键、原型键及不安全路径。`input validate` 和 `plan` 只验证结构/返回契约，不读取项目、不授予权限。
+请求结构和纯虚构示例见[英文参考](cli-contract.md)。写入包含 command/repo/project_id/actor_proof/idempotency_key/expected_revision/input；查询包含 query/repo/projection/snapshot_token/input。输入 JSON 上限 1 MiB、64 层，拒绝未知字段、重复键、原型键及不安全路径。`input validate` 和 `plan` 只验证结构/返回契约，不读取项目、不授予权限。`input validate` 被拒时返回 `valid: false` 并在 `field` 中给出失败的 schema 路径（如 `projection`、`input.scope.criteria[0]`）；该路径只含注册表定义的属性名与下标，意外键按父路径报告，不回显传入的键名或值。每次查询都必须带 `projection`（`summary` 或 `private-local`），省略按 `INVALID_INPUT` 拒绝。`scope.criteria` 的每一项是 Ref（`^[A-Za-z0-9][A-Za-z0-9._:-]*$`，最多128字符），不是自然语言；人类可读的验收描述写在 `scope.goal`。
 
 已实现的本地动作包括创建、规划阶段范围/依赖修改、审计、owner-attested 授权记录及开工承诺。承诺自动写入关联义务与审计，不启动宿主。活动/已验/已关闭任务和已承诺范围的修改依赖尚未提供的能力，会被拒绝。暂停、取消、撤权先独立持久 deny；旧事务可判时自动续交，再追加保护后继，只发布最后受保护代。pending 明确区分保护已持久与业务文本待合入，不宣称远端已停止。
 

@@ -4,6 +4,7 @@ import { realpathSync } from 'node:fs';
 
 export async function run(args, {stdin=process.stdin,stdout=process.stdout}={}) {
   let errorResult=()=>({command_id:'request',outcome:'rejected',code:'INTERNAL_ERROR',exit:70,source_revision:null,generation:null,run_epoch:null,operation_receipt:null,steps:[],effects:[],obligations:[],next:[]});
+  const action=args.join(' ');
   try {
     const engine=await import('./core/engine.mjs');
     const {parseJSON,validateRequest,plan,execute,assertRegistry}=engine;
@@ -11,7 +12,6 @@ export async function run(args, {stdin=process.stdin,stdout=process.stdout}={}) 
     const {help,capabilities,schemaDocument,apiDescription,findCommand}=await import('./core/registry.mjs');
     const {fail}=await import('./core/contracts.mjs');
     assertRegistry();
-    const action=args.join(' ');
     let output;
     if(!args.length || action==='help' || action==='--help') {stdout.write(`${help()}\n`);return 0;}
     if(action==='capability inspect' || action==='inspect-capabilities')output=capabilities();
@@ -30,6 +30,10 @@ export async function run(args, {stdin=process.stdin,stdout=process.stdout}={}) 
     }
     stdout.write(`${JSON.stringify(output)}\n`);return output?.exit??0;
   } catch(error) {
+    if(action==='input validate'&&error?.code==='INVALID_INPUT') {
+      // Diagnostics are the point of this entry: name the failing schema field, never a value.
+      stdout.write(`${JSON.stringify({kind:'input-validation',valid:false,code:'INVALID_INPUT',field:error.field??null,authorization:'not-verified',project_state:'not-read',executable:false})}\n`);return 20;
+    }
     const output=errorResult(error);
     // Only a stable error DTO is emitted; no supplied names, paths, proof or stderr.
     stdout.write(`${JSON.stringify(output)}\n`);return output.exit;
