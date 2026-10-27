@@ -1,0 +1,29 @@
+# GitHub operations
+
+The `hourly-operations` workflow acknowledges open human issues and maintains one **Maintainer operations queue** issue. Find it in the repository's Issues list (author `github-actions[bot]`), or find its number in the workflow's final JSON receipt. It uses only the built-in `GITHUB_TOKEN`: contents/actions read and issues write. No external AI, additional secret, automatic fix, merge, or issue closure is involved.
+
+Each unacknowledged human issue receives one fixed receipt and `needs-triage`. User titles, bodies, identities and logs are never copied into replies or the queue. The queue lists issue numbers and public links. Acknowledgement means awaiting maintainer review, not resolution. After triage, remove `needs-triage`; close the user issue when resolved. Reopened issues return to triage without another receipt. Existing receipts are trusted only when authored by the exact GitHub Actions bot identity; a user-pasted marker cannot suppress acknowledgement. Other bot issues and pull requests are excluded. Closing the queue does not disable automation: the next successful pass reopens it.
+
+The queue records failures, timeouts and attention conclusions across branches for `push`, `schedule`, `workflow_dispatch`, `pull_request`, `pull_request_target`, `workflow_run` and `merge_group`, including this workflow's own previous failures. Other events are outside this scan. `action_required` is shown as **awaiting maintainer approval**, not a test failure. PR approval remains a human security decision: this workflow never approves or executes a fork, checks out a PR, reruns a job or comments on a PR.
+
+Original run ID, attempt, workflow ID, event and conclusion remain linked. A later successful attempt or higher run number recovers only the same workflow, event, branch, head repository ID and PR-number set supplied by GitHub. Different branches/forks/PRs cannot recover each other. Branch names are not copied into the queue; follow the exact public run link for branch and commit details. GitHub may omit PR metadata; matching then uses the available head repository and branch identity. Success is a workflow signal, not proof a reported product issue is fixed. A cancelled run with a newer matching run is marked superseded (cancellation cause is unverified); other cancellation requires review. In-progress runs never count as success. A success on the next manual run does not recover a failed scheduled run until the same event succeeds.
+
+Coverage and retention are deliberately bounded:
+
+- Up to 50 open issues per pass in created order, with a persistent rotating page; previously pending issues are rechecked. New/old omitted issues are eventually visited, subject to issue churn and successful passes. A changed/deleted page may delay coverage; this is not an instant webhook.
+- At most 200 pending issues, 100 failure records, 800 API requests per pass, and three pages of comments/events per selected issue. Recent runs cover seven days and fewer than 500 entries. An exact full pagination boundary conservatively fails. Old unobserved failures and intermediate rerun attempts completed between scans may be missed. Individually tracked unresolved runs are also checked beyond seven days; deleted/unreadable runs require manual investigation.
+- Recovered/superseded records are retained until capacity is needed. Unresolved failures are never silently evicted. Budget exhaustion, invalid state or API errors fail the pass. Maintainers must investigate and reduce overload or adjust the reviewed implementation. Failure records are resolved by matching successful runs, not by editing the queue body.
+
+The queue's last successful check time advances only after a complete pass. Partial writes (for example a label or receipt before an API failure) persist and are reconciled on retry. GitHub does not offer transactional exactly-once writes: an overlapping external writer or deleted/edited bot receipt may require manual reconciliation. Do not edit machine state or remove bot receipts. A triaged issue is still the maintainer's responsibility; GitHub notifications and acknowledgements do not complete it.
+
+To run immediately: **Actions → hourly-operations → Run workflow**, using the default branch. The workflow is serialized, has a ten-minute timeout, and runs its synthetic unit tests before API access. For local logic tests (no credentials or network):
+
+```sh
+python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+```
+
+The cron runs once per hour away from the top of the hour (UTC). GitHub may delay/drop scheduled runs, and can disable schedules after public-repository inactivity. Keep Actions enabled and watch the queue timestamp. See [GitHub's schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule). This GitHub-only mechanism cannot wake itself if Actions or its schedule completely stops; manual dispatch remains the recovery entry. `GITHUB_TOKEN` issue writes do not normally trigger other workflows, so reconciliation relies on the next scheduled/manual scan, with no recursive issue triggers.
+
+For a red run, open the Actions run and inspect its fixed error code (`github_http_403`, `pagination_budget_exhausted`, etc.). Check workflow permissions, API availability/rate limits and queue integrity. Never paste credentials, raw API bodies or private logs into an issue. A failed pass preserves the prior successful timestamp; the next successful pass can capture the previous failure within the stated coverage. Initial queue creation says “not yet completed” until a pass finishes.
+
+If GitHub omits the head repository identity (for example a deleted fork), recovery is conservatively limited to a later successful attempt of that exact run.

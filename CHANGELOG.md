@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- Add bounded hourly GitHub issue acknowledgement and a persistent maintainer queue for Actions failures and PR approval attention.
+
 - Add bounded first-knowledge inventory during authorized manager initialization: explicit state inspection, enumerated source plans, source-bound initial entries and idempotent partial recovery. No automatic project scan or consent proof.
 
 
