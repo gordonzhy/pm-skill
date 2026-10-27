@@ -200,11 +200,17 @@ def run(api, repo, now):
             if key not in records:
                 records[key] = {"id": r["id"], "attempt": r["run_attempt"], "workflow": r["workflow_id"],
                                 "branch": scope_key(r), "number": r["run_number"], "event": r["event"], "original": attention, "status": attention, "recovery": 0}
+            else:
+                row = records[key]
+                if (row["status"] in BAD and row["workflow"] == r["workflow_id"] and
+                        row["event"] == r["event"] and row["branch"] == scope_key(r)):
+                    row["status"] = attention
     for row in records.values():
         if row["status"] not in BAD:
             continue
         successors = [r for r in runs.values() if r["workflow_id"] == row["workflow"] and r["event"] == row["event"] and scope_key(r) == row["branch"] and
-                      (r["run_number"] > row["number"] or (r["id"] == row["id"] and r["run_attempt"] > row["attempt"]))]
+                      (r["run_number"] > row["number"] or (r["id"] == row["id"] and (r["run_attempt"] > row["attempt"] or
+                       (r["run_attempt"] == row["attempt"] and r["status"] == "completed" and r["conclusion"] == "success"))))]
         successes = [r for r in successors if r["status"] == "completed" and r["conclusion"] == "success"]
         if successes:
             row["status"] = "recovered"

@@ -27,3 +27,5 @@ The cron runs once per hour away from the top of the hour (UTC). GitHub may dela
 For a red run, open the Actions run and inspect its fixed error code (`github_http_403`, `pagination_budget_exhausted`, etc.). Check workflow permissions, API availability/rate limits and queue integrity. Never paste credentials, raw API bodies or private logs into an issue. A failed pass preserves the prior successful timestamp; the next successful pass can capture the previous failure within the stated coverage. Initial queue creation says “not yet completed” until a pass finishes.
 
 If GitHub omits the head repository identity (for example a deleted fork), recovery is conservatively limited to a later successful attempt of that exact run.
+
+An attention record also follows terminal updates to that exact run and attempt (for example after a maintainer approves a fork run). It preserves the original attention conclusion, refreshes a later failure, and marks an observed success as recovered. This does not approve or rerun anything. Until a terminal result is observed, an approval-attention record remains unresolved; consult the run link for its live execution phase.

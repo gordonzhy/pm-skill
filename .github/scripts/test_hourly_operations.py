@@ -228,6 +228,20 @@ class OperationsTest(unittest.TestCase):
         m.run(f, "example/demo", NOW)
         self.assertEqual("recovered", f.state()["failures"][0]["status"])
 
+    def test_same_attempt_approval_terminal_updates(self):
+        f = Fake()
+        f.runs = [workflow(60, "action_required", event="pull_request")]
+        m.run(f, "example/demo", NOW)
+        f.runs[0] = workflow(60, "failure", event="pull_request")
+        m.run(f, "example/demo", NOW)
+        row = f.state()["failures"][0]
+        self.assertEqual("action_required", row["original"])
+        self.assertEqual("failure", row["status"])
+        f.runs[0] = workflow(60, "success", event="pull_request")
+        m.run(f, "example/demo", NOW)
+        row = f.state()["failures"][0]
+        self.assertEqual(("action_required", "recovered", 60), (row["original"], row["status"], row["recovery"]))
+
     def test_state_rejects_unknown_untrusted_text(self):
         state = m.empty_state()
         state["extra"] = CANARY
